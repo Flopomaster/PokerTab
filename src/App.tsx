@@ -33,7 +33,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ];
 
 export default function App() {
-  const { ready, profile, club, membership, games, members, isAdmin, loadingClub } = useStore();
+  const { ready, profile, club, membership, games, members, isAdmin, loadingClub, clubError, reloadClubData } = useStore();
   const [view, setView] = useState<View>({ kind: 'tab', tab: 'home' });
   const [toast, setToast] = useState<string | null>(null);
 
@@ -112,7 +112,13 @@ export default function App() {
           <ClubGate />
         ) : (
           <>
-            {loadingClub && games.length === 0 && <div className="empty">טוען את נתוני הקלאב...</div>}
+            {clubError && (
+              <div className="balance-banner bad" style={{ marginBottom: 14, justifyContent: 'space-between' }}>
+                <span>לא הצלחתי לטעון את נתוני הקלאב: {clubError}</span>
+                <button className="btn btn-sm" onClick={() => void reloadClubData()}>נסה שוב</button>
+              </div>
+            )}
+            {loadingClub && games.length === 0 && !clubError && <div className="empty">טוען את נתוני הקלאב...</div>}
 
             {view.kind === 'editor' && (
               <GameEditor

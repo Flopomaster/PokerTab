@@ -283,16 +283,18 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     async clubMembers(clubId) {
       const { data, error } = await sb
         .from('club_members')
-        .select('club_id, user_id, role, status, requested_at, profiles(*)')
+        // חובה לציין את שם המפתח הזר: ל-club_members יש שתי הפניות
+        // ל-profiles (user_id ו-decided_by), וצירוף לא מפורש נכשל
+        .select('club_id, user_id, role, status, requested_at, profiles!club_members_user_id_fkey(*)')
         .eq('club_id', clubId);
       fail(error);
-      return ((data ?? []) as unknown as (Membership & { club_id: string; user_id: string; requested_at: string; profiles: ProfileRow | null })[]).map<Membership>((r) => ({
+      return ((data ?? []) as unknown as (Membership & { club_id: string; user_id: string; requested_at: string; profiles: ProfileRow | ProfileRow[] | null })[]).map<Membership>((r) => ({
         clubId: r.club_id,
         userId: r.user_id,
         role: r.role,
         status: r.status,
         requestedAt: r.requested_at,
-        profile: r.profiles ? toProfile(r.profiles) : undefined,
+        profile: r.profiles ? toProfile(Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) : undefined,
       }));
     },
 

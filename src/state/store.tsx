@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../lib/apiClient';
+import { errorMessage } from '../lib/api';
 import { newId, randomColor, randomEmoji } from '../lib/storage';
 import type { Club, Game, ID, Membership, MyMembership, Player, Profile, Role, SignUpInput } from '../types';
 
@@ -19,6 +20,7 @@ interface StoreValue {
   games: Game[];
   members: Membership[];
   loadingClub: boolean;
+  clubError: string | null;
 
   /* עזרים */
   playerById: (id: ID) => Player | undefined;
@@ -66,6 +68,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>([]);
   const [members, setMembers] = useState<Membership[]>([]);
   const [loadingClub, setLoadingClub] = useState(false);
+  const [clubError, setClubError] = useState<string | null>(null);
 
   const loadSeq = useRef(0);
 
@@ -137,6 +140,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPlayers(data.players);
       setGames(data.games);
       setMembers(memberList);
+      setClubError(null);
+    } catch (e) {
+      if (seq === loadSeq.current) setClubError(errorMessage(e));
     } finally {
       if (seq === loadSeq.current) setLoadingClub(false);
     }
@@ -189,6 +195,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       games,
       members,
       loadingClub,
+      clubError,
       playerById: (id: ID) => players.find((p) => p.id === id),
       myPlayer,
       canEditGame,
@@ -300,7 +307,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reloadClubData,
     };
   }, [
-    ready, profile, memberships, club, membership, isAdmin, players, games, members, loadingClub,
+    ready, profile, memberships, club, membership, isAdmin, players, games, members, loadingClub, clubError,
     myPlayer, canEditGame, refreshMemberships, reloadClubData, requireClub,
   ]);
 

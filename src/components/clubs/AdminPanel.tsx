@@ -8,7 +8,7 @@ import type { Player } from '../../types';
 /** ניהול הקלאב: בקשות הצטרפות, חברים, קוד, ושיוך שחקני אורח לחשבונות. */
 export function AdminPanel({ onToast }: { onToast: (m: string) => void }) {
   const {
-    club, members, players, isAdmin, profile,
+    club, members, players, isAdmin, profile, loadingClub, reloadClubData,
     decideMember, setMemberRole, removeMember, regenerateJoinCode, updateClub, updatePlayer, leaveClub,
   } = useStore();
 
@@ -75,12 +75,24 @@ export function AdminPanel({ onToast }: { onToast: (m: string) => void }) {
         </div>
       </div>
 
-      {isAdmin && pending.length > 0 && (
-        <div className="card">
+      {isAdmin && (
+        <div className="card" style={pending.length > 0 ? { borderColor: 'rgba(240,180,41,0.45)' } : undefined}>
           <div className="card-title">
             <h2>⏳ בקשות הצטרפות</h2>
-            <span className="chip gold">{pending.length}</span>
+            <div className="row" style={{ gap: 8 }}>
+              {pending.length > 0 && <span className="chip gold">{pending.length}</span>}
+              <button className="btn btn-sm btn-ghost" disabled={loadingClub} onClick={() => void run(reloadClubData)}>
+                {loadingClub ? 'מרענן...' : 'רענון'}
+              </button>
+            </div>
           </div>
+
+          {pending.length === 0 && (
+            <p className="muted" style={{ fontSize: 13.5 }}>
+              אין כרגע בקשות ממתינות. כשמישהו יזין את הקוד {club.joinCode} הוא יופיע כאן לאישור.
+            </p>
+          )}
+
           {pending.map((m) => (
             <div className="lb-row" key={m.userId} style={{ cursor: 'default' }}>
               <Avatar player={m.profile} />

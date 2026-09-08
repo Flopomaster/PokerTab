@@ -6,7 +6,8 @@ import { formatDate, money, round2, signedMoney } from '../lib/format';
 import { Avatar, Empty, Stat } from './ui';
 
 export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => void; onOpenGame: (id: string) => void; onGoto: (tab: string) => void }) {
-  const { players, games, club } = useStore();
+  const { players, games, club, isAdmin, members } = useStore();
+  const pendingRequests = members.filter((m) => m.status === 'pending');
   const stats = useMemo(() => computeStats(games, players), [games, players]);
 
   const lastSummary = stats.summaries[stats.summaries.length - 1];
@@ -29,6 +30,22 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
             <p>הכל מתחיל בערב הראשון.</p>
           </div>
         </div>
+      {isAdmin && pendingRequests.length > 0 && (
+        <button className="pending-banner" onClick={() => onGoto('club')}>
+          <span style={{ fontSize: 22 }}>⏳</span>
+          <div>
+            <div style={{ fontWeight: 900 }}>
+              {pendingRequests.length === 1
+                ? `${pendingRequests[0].profile?.displayName ?? 'מישהו'} מבקש להצטרף לקלאב`
+                : `${pendingRequests.length} בקשות הצטרפות ממתינות לאישור`}
+            </div>
+            <div className="lb-sub">לחצו כדי לאשר או לדחות</div>
+          </div>
+          <span className="spacer" />
+          <span className="chip gold">לאישור →</span>
+        </button>
+      )}
+
         <Empty
           icon="🃏"
           title="עוד לא נרשם אף ערב"
@@ -61,6 +78,22 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
         </div>
         <button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>
       </div>
+
+      {isAdmin && pendingRequests.length > 0 && (
+        <button className="pending-banner" onClick={() => onGoto('club')}>
+          <span style={{ fontSize: 22 }}>⏳</span>
+          <div>
+            <div style={{ fontWeight: 900 }}>
+              {pendingRequests.length === 1
+                ? `${pendingRequests[0].profile?.displayName ?? 'מישהו'} מבקש להצטרף לקלאב`
+                : `${pendingRequests.length} בקשות הצטרפות ממתינות לאישור`}
+            </div>
+            <div className="lb-sub">לחצו כדי לאשר או לדחות</div>
+          </div>
+          <span className="spacer" />
+          <span className="chip gold">לאישור →</span>
+        </button>
+      )}
 
       <div className="stat-grid" style={{ marginBottom: 14 }}>
         <Stat label="ערבים שנרשמו" value={games.length} sub={`מאז ${formatDate(stats.summaries[0].game.date)}`} />

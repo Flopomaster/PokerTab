@@ -526,3 +526,14 @@ table.tbl td.name-cell { white-space: normal; }
 .tab.active .tab-badge { background: #7a1414; color: #fff; }
 
 .check:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.pending-banner {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px; text-align: start;
+  margin-bottom: 14px; padding: 14px 16px;
+  border-radius: var(--radius-sm); cursor: pointer; color: var(--text);
+  background: linear-gradient(100deg, rgba(240, 180, 41, 0.18), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  transition: transform 0.15s ease;
+}
+.pending-banner:hover { transform: translateY(-1px); }
