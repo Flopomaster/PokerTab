@@ -1,4 +1,4 @@
 -- ערב חי: משחק שנפתח וניתן לנהל אותו תוך כדי, לפני שמזינים כמה כל אחד יצא.
--- להריץ ב-SQL Editor פעם אחת. ערבים קיימים מסומנים אוטומטית כסגורים.
-alter table public.games
-  add column if not exists status text not null default 'closed';
+-- מנוסח בלי גרשיים ובלי ברירת מחדל, כדי שיהיה קל להקליד אותו ידנית בטלפון.
+-- ערבים קיימים יישארו עם ערך ריק, והאפליקציה מתייחסת לזה כ"סגור".
+alter table public.games add column if not exists status text;
