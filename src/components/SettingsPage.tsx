@@ -81,7 +81,7 @@ export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
       <div className="card">
         <div className="card-title">
           <h2>💾 גיבוי</h2>
-          <span className="hint">{games.length} ערבים · {players.length} שחקנים</span>
+          <span className="hint">{games.length} שולחנות · {players.length} שחקנים</span>
         </div>
         <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
           הורדת עותק של כל נתוני {club?.name ?? 'הקלאב'} כקובץ JSON, לשמירה אצלכם.

@@ -57,23 +57,42 @@ export type GameStatus = 'live' | 'closed';
 export interface Game {
   id: ID;
   clubId: ID;
-  /** live = הערב מתנהל עכשיו; closed = נסגר וחושבו ההעברות */
+  /** live = השולחן מתנהל עכשיו; closed = נסגר וחושבו ההעברות */
   status: GameStatus;
   date: string;
   title: string;
   location: string;
   notes: string;
   buyInAmount: number;
-  /** "הדילר" — האחראי על הערב, היחיד שיכול לערוך אותו מלבד אדמין הקלאב */
+  /** "הדילר" — האחראי על השולחן, היחיד שיכול לערוך אותו מלבד אדמין הקלאב */
   dealerId: ID | null;
   entries: GameEntry[];
   paidTransfers: string[];
   createdAt: string;
 }
 
+/** מצב ההעברה: המשלם מסמן שהעביר, המקבל מאשר שקיבל. */
+export interface Settlement {
+  gameId: ID;
+  fromPlayer: ID;
+  toPlayer: ID;
+  senderMarked: boolean;
+  receiverConfirmed: boolean;
+}
+
 export interface ClubData {
   players: Player[];
   games: Game[];
+  settlements: Settlement[];
+}
+
+/** חוב פתוח של שחקן משולחן קודם שטרם אושר על ידי המקבל. */
+export interface OpenDebt {
+  gameId: ID;
+  date: string;
+  toPlayerId: ID;
+  amount: number;
+  senderMarked: boolean;
 }
 
 export interface Transfer {

@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Api, JoinResult } from './api';
 import { ApiError } from './api';
-import type { Club, ClubData, Game, Membership, MyMembership, Player, Profile, Role, SignUpInput } from '../types';
+import type { Club, ClubData, Game, Membership, MyMembership, Player, Profile, Role, Settlement, SignUpInput } from '../types';
 
 /** דומיין פנימי לחשבונות שנרשמו בלי מייל אמיתי */
 const INTERNAL_DOMAIN = 'pokertab.app';
@@ -50,6 +50,14 @@ interface GameRow {
   game_entries?: EntryRow[];
 }
 
+interface SettlementRow {
+  game_id: string;
+  from_player: string;
+  to_player: string;
+  sender_marked: boolean;
+  receiver_confirmed: boolean;
+}
+
 interface ProfileRow {
   id: string;
   username: string;
@@ -57,6 +65,14 @@ interface ProfileRow {
   emoji: string;
   color: string;
 }
+
+const toSettlement = (r: SettlementRow): Settlement => ({
+  gameId: r.game_id,
+  fromPlayer: r.from_player,
+  toPlayer: r.to_player,
+  senderMarked: !!r.sender_marked,
+  receiverConfirmed: !!r.receiver_confirmed,
+});
 
 const num = (v: number | string) => (typeof v === 'number' ? v : Number(v) || 0);
 
@@ -349,10 +365,49 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       ]);
       fail(playersRes.error);
       fail(gamesRes.error);
+
+      const games = ((gamesRes.data ?? []) as GameRow[]).map(toGame);
+      let settlements: Settlement[] = [];
+      if (games.length > 0) {
+        const res = await sb
+          .from('transfer_settlements')
+          .select('*')
+          .in('game_id', games.map((g) => g.id));
+        // הטבלה נוספת במיגרציה 002; בלעדיה פשוט אין עדיין סימונים
+        if (!res.error) settlements = ((res.data ?? []) as SettlementRow[]).map(toSettlement);
+      }
+
       return {
         players: ((playersRes.data ?? []) as PlayerRow[]).map(toPlayer),
-        games: ((gamesRes.data ?? []) as GameRow[]).map(toGame),
+        games,
+        settlements,
       };
+    },
+
+    async markTransferSent(gameId, fromPlayer, toPlayer, value) {
+      const { error } = await sb.rpc('mark_transfer_sent', {
+        p_game: gameId,
+        p_from: fromPlayer,
+        p_to: toPlayer,
+        p_value: value,
+      });
+      if (error) {
+        if (/NOT_ALLOWED/.test(error.message)) throw new ApiError('NOT_ALLOWED', error.message);
+        throw new ApiError('', error.message);
+      }
+    },
+
+    async confirmTransferReceived(gameId, fromPlayer, toPlayer, value) {
+      const { error } = await sb.rpc('confirm_transfer_received', {
+        p_game: gameId,
+        p_from: fromPlayer,
+        p_to: toPlayer,
+        p_value: value,
+      });
+      if (error) {
+        if (/NOT_ALLOWED/.test(error.message)) throw new ApiError('NOT_ALLOWED', error.message);
+        throw new ApiError('', error.message);
+      }
     },
 
     async createPlayer(clubId, input) {
@@ -401,7 +456,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
         paid_transfers: game.paidTransfers,
       };
       // חשוב: לא upsert. upsert על שורה קיימת נבדק גם מול מדיניות ה-INSERT,
-      // שדורשת שהכותב יהיה הדילר — וכך אדמין לא היה יכול לערוך ערב של אחר.
+      // שדורשת שהכותב יהיה הדילר — וכך אדמין לא היה יכול לערוך שולחן של אחר.
       const { data, error } = isNew
         ? await sb.from('games').insert(row).select().single()
         : await sb.from('games').update(row).eq('id', game.id).select().single();
@@ -447,6 +502,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `club_id=eq.${clubId}` }, onChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'club_members', filter: `club_id=eq.${clubId}` }, onChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_entries' }, onChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transfer_settlements' }, onChange)
         .subscribe();
       return () => {
         void sb.removeChannel(channel);

@@ -32,7 +32,7 @@ interface LineProps {
   height?: number;
 }
 
-/** גרף קו מרובה-סדרות, SVG טהור — מאזן מצטבר לאורך הערבים. */
+/** גרף קו מרובה-סדרות, SVG טהור — מאזן מצטבר לאורך השולחנות. */
 export function MultiLineChart({ labels, series, height = 300 }: LineProps) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hover, setHover] = useState<number | null>(null);
@@ -177,7 +177,7 @@ interface BarProps {
   height?: number;
 }
 
-/** גרף עמודות רווח/הפסד לערב — ירוק מעל האפס, אדום מתחת. */
+/** גרף עמודות רווח/הפסד לשולחן — ירוק מעל האפס, אדום מתחת. */
 export function BarChart({ labels, values, height = 200 }: BarProps) {
   const minWidth = Math.max(420, labels.length * 54);
   const { ref, width } = useContainerWidth(minWidth);

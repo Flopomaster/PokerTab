@@ -54,7 +54,7 @@ export function StatsPage() {
   const h2h = useMemo(() => (h2hA && h2hB && h2hA !== h2hB ? headToHead(stats.summaries, h2hA, h2hB) : null), [stats.summaries, h2hA, h2hB]);
 
   if (active.length === 0) {
-    return <Empty icon="📈" title="אין עדיין סטטיסטיקות" text="הוסיפו ערב ראשון והמספרים יתחילו לזרום." />;
+    return <Empty icon="📈" title="אין עדיין סטטיסטיקות" text="הוסיפו שולחן ראשון והמספרים יתחילו לזרום." />;
   }
 
   return (
@@ -69,7 +69,7 @@ export function StatsPage() {
       <div className="card">
         <div className="card-title">
           <h2>🏅 תארי הקבוצה</h2>
-          <span className="hint">מתעדכן אוטומטית אחרי כל ערב</span>
+          <span className="hint">מתעדכן אוטומטית אחרי כל שולחן</span>
         </div>
         <div className="titles-grid">
           {titles.map((t) => {
@@ -104,7 +104,7 @@ export function StatsPage() {
         <div className="card-title"><h2>🔥 שיאים</h2></div>
         <div className="stat-grid">
           <Stat
-            label="הערב הכי רווחי אי פעם"
+            label="השולחן הכי רווחי אי פעם"
             value={signedMoney(records.bestNight.net)}
             sub={records.bestNight.playerId ? `${nameOf(records.bestNight.playerId)} · ${formatDate(records.bestNight.date)}` : '—'}
             tone="pos"
@@ -116,14 +116,14 @@ export function StatsPage() {
             tone="neg"
           />
           <Stat label="הקופה הגדולה ביותר" value={money(records.biggestPot.pot)} sub={records.biggestPot.date ? formatDate(records.biggestPot.date) : '—'} tone="gold" />
-          <Stat label="השולחן המלא ביותר" value={`${records.fullestTable.count} שחקנים`} sub={records.fullestTable.date ? formatDate(records.fullestTable.date) : '—'} />
+          <Stat label="הכי הרבה שחקנים" value={`${records.fullestTable.count} שחקנים`} sub={records.fullestTable.date ? formatDate(records.fullestTable.date) : '—'} />
         </div>
       </div>
 
       <div className="card">
         <div className="card-title">
           <h2>⚔️ ראש בראש</h2>
-          <span className="hint">רק ערבים ששניהם שיחקו בהם</span>
+          <span className="hint">רק שולחנות ששניהם שיחקו בהם</span>
         </div>
         <div className="grid-2" style={{ marginBottom: 16 }}>
           <div className="field">
@@ -145,12 +145,12 @@ export function StatsPage() {
         </div>
 
         {!h2h || h2h.games === 0 ? (
-          <p className="muted" style={{ fontSize: 14 }}>אין ערבים משותפים בין השניים (או שנבחר אותו שחקן פעמיים).</p>
+          <p className="muted" style={{ fontSize: 14 }}>אין שולחנות משותפים בין השניים (או שנבחר אותו שחקן פעמיים).</p>
         ) : (
           <div className="stat-grid">
-            <Stat label="ערבים משותפים" value={h2h.games} />
-            <Stat label={`ניצחונות ${nameOf(h2hA)}`} value={h2h.aWins} sub={`מאזן ${signedMoney(h2h.aNet)} בערבים האלה`} tone={h2h.aWins >= h2h.bWins ? 'pos' : undefined} />
-            <Stat label={`ניצחונות ${nameOf(h2hB)}`} value={h2h.bWins} sub={`מאזן ${signedMoney(h2h.bNet)} בערבים האלה`} tone={h2h.bWins > h2h.aWins ? 'pos' : undefined} />
+            <Stat label="שולחנות משותפים" value={h2h.games} />
+            <Stat label={`ניצחונות ${nameOf(h2hA)}`} value={h2h.aWins} sub={`מאזן ${signedMoney(h2h.aNet)} בשולחנות האלה`} tone={h2h.aWins >= h2h.bWins ? 'pos' : undefined} />
+            <Stat label={`ניצחונות ${nameOf(h2hB)}`} value={h2h.bWins} sub={`מאזן ${signedMoney(h2h.bNet)} בשולחנות האלה`} tone={h2h.bWins > h2h.aWins ? 'pos' : undefined} />
             <Stat
               label="מי מוביל"
               value={h2h.aNet === h2h.bNet ? 'תיקו' : h2h.aNet > h2h.bNet ? nameOf(h2hA) : nameOf(h2hB)}
@@ -168,7 +168,7 @@ export function StatsPage() {
             <thead>
               <tr>
                 <th>שחקן</th>
-                <th>ערבים</th>
+                <th>שולחנות</th>
                 <th>רצף נוכחי</th>
                 <th>רצף ניצחונות הכי ארוך</th>
                 <th>רצף הפסדים הכי ארוך</th>

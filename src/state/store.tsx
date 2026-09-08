@@ -3,7 +3,9 @@ import type { ReactNode } from 'react';
 import { api } from '../lib/apiClient';
 import { errorMessage } from '../lib/api';
 import { newId, randomColor, randomEmoji } from '../lib/storage';
-import type { Club, Game, ID, Membership, MyMembership, Player, Profile, Role, SignUpInput } from '../types';
+import type { Club, Game, ID, Membership, MyMembership, OpenDebt, Player, Profile, Role, Settlement, SignUpInput } from '../types';
+import { computeTransfers } from '../lib/settle';
+import { summarizeGame } from '../lib/stats';
 
 const ACTIVE_CLUB_KEY = 'pokertab.activeClub';
 
@@ -19,11 +21,17 @@ interface StoreValue {
   activePlayers: Player[];
   games: Game[];
   members: Membership[];
+  settlements: Settlement[];
+  /** חובות שטרם אושרו על ידי המקבל, לפי שחקן משלם */
+  openDebts: Map<ID, OpenDebt[]>;
   loadingClub: boolean;
   clubError: string | null;
 
   /* עזרים */
   playerById: (id: ID) => Player | undefined;
+  settlementFor: (gameId: ID, from: ID, to: ID) => Settlement | undefined;
+  /** האם המשתמש הנוכחי רשאי לסמן בשם השחקן הזה */
+  canActForPlayer: (game: Game, playerId: ID) => boolean;
   myPlayer: Player | null;
   canEditGame: (game: Game) => boolean;
 
@@ -54,6 +62,8 @@ interface StoreValue {
   saveGame: (game: Game) => Promise<void>;
   deleteGame: (gameId: ID) => Promise<void>;
   toggleTransferPaid: (gameId: ID, key: string) => Promise<void>;
+  markTransferSent: (gameId: ID, from: ID, to: ID, value: boolean) => Promise<void>;
+  confirmTransferReceived: (gameId: ID, from: ID, to: ID, value: boolean) => Promise<void>;
   reloadClubData: () => Promise<void>;
 }
 
@@ -67,6 +77,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [members, setMembers] = useState<Membership[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loadingClub, setLoadingClub] = useState(false);
   const [clubError, setClubError] = useState<string | null>(null);
 
@@ -139,6 +150,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (seq !== loadSeq.current) return;
       setPlayers(data.players);
       setGames(data.games);
+      setSettlements(data.settlements);
       setMembers(memberList);
       setClubError(null);
     } catch (e) {
@@ -154,6 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPlayers([]);
       setGames([]);
       setMembers([]);
+      setSettlements([]);
       return;
     }
     void loadClubData(activeClubId);
@@ -182,6 +195,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [isAdmin, profile],
   );
 
+  /* אותו כלל כמו בשרת: שחקן מקושר — רק בעל החשבון; אורח — הדילר או אדמין */
+  const canActForPlayer = useCallback(
+    (game: Game, playerId: ID) => {
+      const player = players.find((p) => p.id === playerId);
+      if (!player) return false;
+      if (player.userId) return player.userId === profile?.id;
+      return isAdmin || (!!profile && game.dealerId === profile.id);
+    },
+    [players, profile, isAdmin],
+  );
+
+  const settlementFor = useCallback(
+    (gameId: ID, from: ID, to: ID) =>
+      settlements.find((x) => x.gameId === gameId && x.fromPlayer === from && x.toPlayer === to),
+    [settlements],
+  );
+
+  /* חובות פתוחים: העברה משולחן סגור שהמקבל עדיין לא אישר */
+  const openDebts = useMemo(() => {
+    const map = new Map<ID, OpenDebt[]>();
+    for (const game of games) {
+      if (game.status === 'live') continue;
+      const summary = summarizeGame(game);
+      const transfers = computeTransfers(summary.results.map((r) => ({ id: r.playerId, net: r.net })));
+      for (const t of transfers) {
+        const settled = settlements.find(
+          (x) => x.gameId === game.id && x.fromPlayer === t.from && x.toPlayer === t.to,
+        );
+        if (settled?.receiverConfirmed) continue;
+        const list = map.get(t.from) ?? [];
+        list.push({
+          gameId: game.id,
+          date: game.date,
+          toPlayerId: t.to,
+          amount: t.amount,
+          senderMarked: !!settled?.senderMarked,
+        });
+        map.set(t.from, list);
+      }
+    }
+    return map;
+  }, [games, settlements]);
+
   const value = useMemo<StoreValue>(() => {
     return {
       ready,
@@ -194,9 +250,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       activePlayers: players.filter((p) => !p.archived),
       games,
       members,
+      settlements,
+      openDebts,
       loadingClub,
       clubError,
       playerById: (id: ID) => players.find((p) => p.id === id),
+      settlementFor,
+      canActForPlayer,
       myPlayer,
       canEditGame,
 
@@ -304,11 +364,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGames((prev) => prev.map((g) => (g.id === gameId ? { ...g, paidTransfers: next } : g)));
         await api.setPaidTransfers(gameId, next);
       },
+      async markTransferSent(gameId, from, to, value) {
+        setSettlements((prev) => {
+          const exists = prev.some((x) => x.gameId === gameId && x.fromPlayer === from && x.toPlayer === to);
+          return exists
+            ? prev.map((x) =>
+                x.gameId === gameId && x.fromPlayer === from && x.toPlayer === to ? { ...x, senderMarked: value } : x,
+              )
+            : [...prev, { gameId, fromPlayer: from, toPlayer: to, senderMarked: value, receiverConfirmed: false }];
+        });
+        try {
+          await api.markTransferSent(gameId, from, to, value);
+        } finally {
+          await reloadClubData();
+        }
+      },
+      async confirmTransferReceived(gameId, from, to, value) {
+        setSettlements((prev) => {
+          const exists = prev.some((x) => x.gameId === gameId && x.fromPlayer === from && x.toPlayer === to);
+          return exists
+            ? prev.map((x) =>
+                x.gameId === gameId && x.fromPlayer === from && x.toPlayer === to
+                  ? { ...x, receiverConfirmed: value }
+                  : x,
+              )
+            : [...prev, { gameId, fromPlayer: from, toPlayer: to, senderMarked: false, receiverConfirmed: value }];
+        });
+        try {
+          await api.confirmTransferReceived(gameId, from, to, value);
+        } finally {
+          await reloadClubData();
+        }
+      },
       reloadClubData,
     };
   }, [
-    ready, profile, memberships, club, membership, isAdmin, players, games, members, loadingClub, clubError,
-    myPlayer, canEditGame, refreshMemberships, reloadClubData, requireClub,
+    ready, profile, memberships, club, membership, isAdmin, players, games, members, settlements, openDebts,
+    loadingClub, clubError, myPlayer, canEditGame, canActForPlayer, settlementFor,
+    refreshMemberships, reloadClubData, requireClub,
   ]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

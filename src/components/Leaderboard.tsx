@@ -9,13 +9,13 @@ import { PlayerModal } from './PlayerModal';
 type SortKey = 'net' | 'games' | 'avgNet' | 'roi' | 'wins' | 'avgRank' | 'bestNight' | 'worstNight' | 'itmRate';
 
 const COLUMNS: { key: SortKey; label: string; hint?: string }[] = [
-  { key: 'games', label: 'ערבים' },
+  { key: 'games', label: 'שולחנות' },
   { key: 'net', label: 'מאזן כולל' },
-  { key: 'avgNet', label: 'ממוצע לערב' },
+  { key: 'avgNet', label: 'ממוצע לשולחן' },
   { key: 'roi', label: 'ROI' },
   { key: 'wins', label: 'ניצחונות' },
   { key: 'avgRank', label: 'מקום ממוצע' },
-  { key: 'itmRate', label: '% ערבים ברווח' },
+  { key: 'itmRate', label: '% שולחנות ברווח' },
   { key: 'bestNight', label: 'הכי טוב' },
   { key: 'worstNight', label: 'הכי גרוע' },
 ];
@@ -47,7 +47,7 @@ export function Leaderboard() {
   };
 
   if (rows.length === 0) {
-    return <Empty icon="📊" title="אין עדיין נתונים" text="אחרי הערב הראשון הטבלה הזאת תתמלא מעצמה." />;
+    return <Empty icon="📊" title="אין עדיין נתונים" text="אחרי השולחן הראשון הטבלה הזאת תתמלא מעצמה." />;
   }
 
   return (
@@ -72,7 +72,7 @@ export function Leaderboard() {
                   {s.currentStreak <= -2 && <span title={`${-s.currentStreak} הפסדים ברצף`}> 🧊</span>}
                 </div>
                 <div className="lb-sub">
-                  {s.games} ערבים · {s.wins} ניצחונות · ממוצע {signedMoney(s.avgNet)}
+                  {s.games} שולחנות · {s.wins} ניצחונות · ממוצע {signedMoney(s.avgNet)}
                 </div>
               </div>
             </div>

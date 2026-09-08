@@ -21,9 +21,9 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
     return (
       <Empty
         icon="📅"
-        title="אין עדיין ערבים"
-        text="כל ערב שתוסיפו יופיע כאן עם התוצאות וההעברות שלו."
-        action={<button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>}
+        title="אין עדיין שולחנות"
+        text="כל שולחן שתוסיפו יופיע כאן עם התוצאות וההעברות שלו."
+        action={<button className="btn btn-primary" onClick={onNewGame}>+ שולחן חדש</button>}
       />
     );
   }
@@ -32,15 +32,15 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
     <div className="fade-in">
       <div className="section-head">
         <div>
-          <h1>היסטוריית ערבים</h1>
-          <p>{visibleGames.length} ערבים · לחיצה פותחת את הסיכום וההעברות.</p>
+          <h1>היסטוריית שולחנות</h1>
+          <p>{visibleGames.length} שולחנות · לחיצה פותחת את הסיכום וההעברות.</p>
         </div>
-        <button className="btn btn-primary" onClick={onNewGame} disabled={!!liveGame}>+ ערב חדש</button>
+        <button className="btn btn-primary" onClick={onNewGame} disabled={!!liveGame}>+ שולחן חדש</button>
       </div>
 
       {liveGame && (
         <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
-          יש ערב שמתנהל עכשיו — צריך לסגור אותו לפני שפותחים חדש.
+          יש שולחן שמתנהל עכשיו — צריך לסגור אותו לפני שפותחים חדש.
         </p>
       )}
 
@@ -92,7 +92,7 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
             </div>
           );
         })}
-        {visibleGames.length === 0 && <p className="muted" style={{ fontSize: 14 }}>אין ערבים שתואמים לסינון.</p>}
+        {visibleGames.length === 0 && <p className="muted" style={{ fontSize: 14 }}>אין שולחנות שתואמים לסינון.</p>}
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ export function MigrateLocalCard({ onToast }: { onToast: (m: string) => void }) 
       clearLegacyData();
       await reloadClubData();
       setDone(true);
-      onToast(`הועלו ${legacy.games.length} ערבים לקלאב ✓`);
+      onToast(`הועלו ${legacy.games.length} שולחנות לקלאב ✓`);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -75,10 +75,10 @@ export function MigrateLocalCard({ onToast }: { onToast: (m: string) => void }) 
     <div className="card" style={{ borderColor: 'rgba(240,180,41,0.4)' }}>
       <div className="card-title">
         <h2>📦 נתונים מהגרסה הישנה</h2>
-        <span className="chip gold">{legacy.games.length} ערבים</span>
+        <span className="chip gold">{legacy.games.length} שולחנות</span>
       </div>
       <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
-        מצאנו {legacy.games.length} ערבים ו-{legacy.players.length} שחקנים ששמורים בדפדפן הזה מלפני המעבר לקלאבים.
+        מצאנו {legacy.games.length} שולחנות ו-{legacy.players.length} שחקנים ששמורים בדפדפן הזה מלפני המעבר לקלאבים.
         אפשר להעלות אותם ל<b>{club.name}</b> — שחקנים עם שם זהה יתמזגו לשחקן קיים.
       </p>
       {error && <div className="balance-banner bad" style={{ marginBottom: 12 }}>{error}</div>}

@@ -193,7 +193,7 @@ export function AdminPanel({ onToast }: { onToast: (m: string) => void }) {
       <div className="card">
         <div className="card-title"><h2>🚪 יציאה מהקלאב</h2></div>
         <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
-          תפסיקו לראות את הערבים והסטטיסטיקות של הקלאב. הנתונים עצמם נשארים אצל שאר החברים, ואפשר לבקש להצטרף שוב עם הקוד.
+          תפסיקו לראות את השולחנות והסטטיסטיקות של הקלאב. הנתונים עצמם נשארים אצל שאר החברים, ואפשר לבקש להצטרף שוב עם הקוד.
         </p>
         <button className="btn btn-danger" disabled={busy} onClick={() => void run(() => leaveClub(club.id))}>יציאה מ{club.name}</button>
       </div>

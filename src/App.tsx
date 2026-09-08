@@ -26,7 +26,7 @@ type View =
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'ראשי', icon: '🏠' },
-  { id: 'games', label: 'ערבים', icon: '📅' },
+  { id: 'games', label: 'שולחנות', icon: '📅' },
   { id: 'leaderboard', label: 'לוח מובילים', icon: '🏆' },
   { id: 'stats', label: 'סטטיסטיקות', icon: '📈' },
   { id: 'players', label: 'שחקנים', icon: '👥' },
@@ -67,7 +67,7 @@ export default function App() {
 
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
   const openGame = (id: string) => {
-    // ערב שעדיין מתנהל נפתח במסך הניהול החי ולא בסיכום
+    // שולחן שעדיין מתנהל נפתח במסך הניהול החי ולא בסיכום
     const g = games.find((x) => x.id === id);
     setView(g?.status === 'live' ? { kind: 'live', id } : { kind: 'game', id });
   };
@@ -131,7 +131,7 @@ export default function App() {
                 game={editingGame}
                 onDone={(id) => {
                   setView(editingGame ? { kind: 'game', id } : { kind: 'live', id });
-                  setToast(editingGame ? 'הערב עודכן ✓' : 'הערב התחיל 🎲');
+                  setToast(editingGame ? 'השולחן עודכן ✓' : 'השולחן התחיל 🎲');
                 }}
                 onCancel={() => (editingGame ? openGame(editingGame.id) : goTab('games'))}
               />
@@ -145,7 +145,7 @@ export default function App() {
                   onToast={setToast}
                 />
               ) : (
-                <div className="empty">הערב לא נמצא.</div>
+                <div className="empty">השולחן לא נמצא.</div>
               ))}
 
             {view.kind === 'game' &&
@@ -157,7 +157,7 @@ export default function App() {
                   onToast={setToast}
                 />
               ) : (
-                <div className="empty">הערב לא נמצא.</div>
+                <div className="empty">השולחן לא נמצא.</div>
               ))}
 
             {view.kind === 'tab' && view.tab === 'home' && <Dashboard onNewGame={newGame} onOpenGame={openGame} onGoto={(t) => goTab(t as Tab)} />}

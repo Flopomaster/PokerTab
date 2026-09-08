@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import type { Game, GameEntry } from '../types';
+import type { Game, GameEntry, OpenDebt } from '../types';
 import { useStore } from '../state/store';
 import { newId } from '../lib/storage';
 import { entryBuyIn } from '../lib/stats';
 import { money, round2, signedMoney, todayISO } from '../lib/format';
 import { Avatar, Stepper } from './ui';
+import { DebtWarningModal } from './DebtWarning';
 import { errorMessage } from '../lib/api';
 
 function num(v: string): number {
@@ -13,9 +14,9 @@ function num(v: string): number {
 }
 
 export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDone: (id: string) => void; onCancel: () => void }) {
-  // ערב חדש נפתח כ"חי" ומנוהל תוך כדי; עריכה נוגעת רק לערב שכבר נסגר
+  // שולחן חדש נפתח כ"חי" ומנוהל תוך כדי; עריכה נוגעת רק לשולחן שכבר נסגר
   const isNew = !game;
-  const { players, activePlayers, addPlayer, saveGame, club, profile } = useStore();
+  const { players, activePlayers, addPlayer, saveGame, club, profile, openDebts } = useStore();
 
   const [date, setDate] = useState(game?.date ?? todayISO());
   const [title, setTitle] = useState(game?.title ?? '');
@@ -26,6 +27,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debtCheck, setDebtCheck] = useState<{ playerId: string; debts: OpenDebt[] } | null>(null);
 
   const seated = new Set(entries.map((e) => e.playerId));
   const bench = activePlayers.filter((p) => !seated.has(p.id));
@@ -38,8 +40,15 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
 
   const balanced = Math.abs(totals.diff) < 0.005;
 
-  const seat = (playerId: string) =>
+  const doSeat = (playerId: string) =>
     setEntries((prev) => [...prev, { playerId, buyIns: 1, extraBuyIn: 0, cashOut: 0 }]);
+
+  /* לפני הושבה בודקים אם נשאר חוב פתוח משולחן קודם */
+  const seat = (playerId: string) => {
+    const debts = openDebts.get(playerId);
+    if (debts && debts.length > 0) setDebtCheck({ playerId, debts });
+    else doSeat(playerId);
+  };
 
   const unseat = (playerId: string) => setEntries((prev) => prev.filter((e) => e.playerId !== playerId));
 
@@ -75,7 +84,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
         location: location.trim(),
         notes: notes.trim(),
         buyInAmount,
-        // הדילר הוא מי שפתח את הערב; בעריכה הוא נשאר מי שהיה
+        // הדילר הוא מי שפתח את השולחן; בעריכה הוא נשאר מי שהיה
         dealerId: game?.dealerId ?? profile?.id ?? null,
         status: game?.status ?? 'live',
         entries,
@@ -98,11 +107,11 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
     <div className="fade-in">
       <div className="section-head">
         <div>
-          <h1>{isNew ? 'פתיחת ערב' : 'עריכת ערב'}</h1>
+          <h1>{isNew ? 'פתיחת שולחן' : 'עריכת שולחן'}</h1>
           <p>
             {isNew
               ? 'בוחרים מי יושב לשולחן ומתחילים. אפשר להוסיף כניסות ושחקנים תוך כדי המשחק.'
-              : 'עדכון הסכומים של ערב שכבר נסגר — ההעברות יחושבו מחדש.'}
+              : 'עדכון הסכומים של שולחן שכבר נסגר — ההעברות יחושבו מחדש.'}
           </p>
         </div>
         <button className="btn btn-ghost" onClick={onCancel}>ביטול</button>
@@ -124,10 +133,22 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
           </div>
           <div className="field">
             <label>כותרת (לא חובה)</label>
-            <input className="input" placeholder="ערב שישי / טורניר החודש" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="input" placeholder="שולחן שישי / טורניר החודש" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
         </div>
       </div>
+
+      {debtCheck && (
+        <DebtWarningModal
+          playerId={debtCheck.playerId}
+          debts={debtCheck.debts}
+          onConfirm={() => {
+            doSeat(debtCheck.playerId);
+            setDebtCheck(null);
+          }}
+          onCancel={() => setDebtCheck(null)}
+        />
+      )}
 
       <div className="card">
         <div className="card-title">
@@ -259,13 +280,13 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
         )}
 
         <div className="field" style={{ marginTop: 14 }}>
-          <label>הערות לערב</label>
-          <textarea className="textarea" placeholder="באד ביט של הערב, מי הביא פיצה..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label>הערות לשולחן</label>
+          <textarea className="textarea" placeholder="באד ביט של השולחן, מי הביא פיצה..." value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
         <div className="row" style={{ marginTop: 16 }}>
           <button className="btn btn-primary btn-block" onClick={() => void save()} disabled={entries.length < 2 || busy}>
-            {busy ? 'שומר...' : isNew ? '🎲 התחלת הערב' : 'שמירת שינויים'}
+            {busy ? 'שומר...' : isNew ? '🎲 התחלת השולחן' : 'שמירת שינויים'}
           </button>
         </div>
         {entries.length < 2 && <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>צריך לפחות שני שחקנים.</p>}

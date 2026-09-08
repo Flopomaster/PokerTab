@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Game, GameEntry } from '../types';
+import type { Game, GameEntry, OpenDebt } from '../types';
 import { useStore } from '../state/store';
 import { entryBuyIn } from '../lib/stats';
 import { errorMessage } from '../lib/api';
 import { formatDate, money, round2, signedMoney } from '../lib/format';
 import { Avatar, Modal, Stepper } from './ui';
+import { DebtWarningModal } from './DebtWarning';
 
 type Phase = 'playing' | 'closing';
 
-/** ניהול ערב תוך כדי שהוא מתנהל: כניסות, שחקנים שמצטרפים, וסגירה בסוף. */
+/** ניהול שולחן תוך כדי שהוא מתנהל: כניסות, שחקנים שמצטרפים, וסגירה בסוף. */
 export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gameId: string) => void; onToast: (m: string) => void }) {
-  const { players, activePlayers, addPlayer, saveGame, deleteGame, canEditGame, members } = useStore();
+  const { players, activePlayers, addPlayer, saveGame, deleteGame, canEditGame, members, openDebts } = useStore();
   const canEdit = canEditGame(game);
 
   const [entries, setEntries] = useState<GameEntry[]>(game.entries);
@@ -20,6 +21,7 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
   const [newName, setNewName] = useState('');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [debtCheck, setDebtCheck] = useState<{ playerId: string; debts: OpenDebt[] } | null>(null);
 
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,8 +71,15 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
   const patch = (playerId: string, p: Partial<GameEntry>) =>
     schedule(entries.map((e) => (e.playerId === playerId ? { ...e, ...p } : e)));
 
-  const seat = (playerId: string) =>
+  const doSeat = (playerId: string) =>
     schedule([...entries, { playerId, buyIns: 1, extraBuyIn: 0, cashOut: 0 }]);
+
+  /* לפני הושבה בודקים אם נשאר חוב פתוח משולחן קודם */
+  const seat = (playerId: string) => {
+    const debts = openDebts.get(playerId);
+    if (debts && debts.length > 0) setDebtCheck({ playerId, debts });
+    else doSeat(playerId);
+  };
 
   const unseat = (playerId: string) => schedule(entries.filter((e) => e.playerId !== playerId));
 
@@ -107,7 +116,7 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
   const closeNight = async () => {
     if (timer.current) clearTimeout(timer.current);
     await persist(entries, 'closed');
-    onToast('הערב נסגר — הנה ההעברות ✓');
+    onToast('השולחן נסגר — הנה ההעברות ✓');
     onClose(game.id);
   };
 
@@ -115,8 +124,8 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
     <div className="fade-in">
       <div className="section-head">
         <div>
-          <div className="live-badge"><span className="live-dot" /> ערב פעיל</div>
-          <h1 style={{ marginTop: 6 }}>{game.title || 'ערב פוקר'}</h1>
+          <div className="live-badge"><span className="live-dot" /> שולחן פעיל</div>
+          <h1 style={{ marginTop: 6 }}>{game.title || 'שולחן פוקר'}</h1>
           <p>
             {formatDate(game.date)}
             {game.location ? ` · ${game.location}` : ''} · רץ כבר {elapsed}
@@ -131,7 +140,7 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
       {!canEdit && (
         <div className="balance-banner ok" style={{ marginBottom: 14 }}>
           <span>👀</span>
-          <span>הערב מתנהל עכשיו. רק {dealer?.displayName ?? 'הדילר'} או אדמין הקלאב יכולים לעדכן אותו.</span>
+          <span>השולחן מתנהל עכשיו. רק {dealer?.displayName ?? 'הדילר'} או אדמין הקלאב יכולים לעדכן אותו.</span>
         </div>
       )}
 
@@ -246,7 +255,7 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
         <div className={`balance-banner ${balanced ? 'ok' : 'bad'}`} style={{ marginBottom: 14 }}>
           <span style={{ fontSize: 18 }}>{balanced ? '✓' : '⚠️'}</span>
           {balanced ? (
-            <span>הקופה מאוזנת — אפשר לסגור את הערב.</span>
+            <span>הקופה מאוזנת — אפשר לסגור את השולחן.</span>
           ) : (
             <span>
               {totals.diff < 0 ? 'חסרים' : 'עודפים'} {money(Math.abs(totals.diff))} — בדקו את הספירה או השלימו על שחקן בכפתור "איזון".
@@ -260,39 +269,51 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
           {phase === 'playing' ? (
             <>
               <button className="btn btn-primary btn-block" disabled={entries.length < 2} onClick={() => setPhase('closing')}>
-                סיום הערב וחלוקה →
+                סיום השולחן וחלוקה →
               </button>
               {entries.length < 2 && (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>צריך לפחות שני שחקנים.</p>
               )}
               <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={() => setConfirmCancel(true)}>
-                ביטול הערב
+                ביטול השולחן
               </button>
             </>
           ) : (
             <>
               <button className="btn btn-primary btn-block" disabled={saving} onClick={() => void closeNight()}>
-                {saving ? 'סוגר...' : 'סגירת הערב וחישוב ההעברות'}
+                {saving ? 'סוגר...' : 'סגירת השולחן וחישוב ההעברות'}
               </button>
               <button className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={() => setPhase('playing')}>
-                ← חזרה לניהול הערב
+                ← חזרה לניהול השולחן
               </button>
             </>
           )}
         </div>
       )}
 
+      {debtCheck && (
+        <DebtWarningModal
+          playerId={debtCheck.playerId}
+          debts={debtCheck.debts}
+          onConfirm={() => {
+            doSeat(debtCheck.playerId);
+            setDebtCheck(null);
+          }}
+          onCancel={() => setDebtCheck(null)}
+        />
+      )}
+
       {confirmCancel && (
-        <Modal title="לבטל את הערב?" onClose={() => setConfirmCancel(false)}>
+        <Modal title="לבטל את השולחן?" onClose={() => setConfirmCancel(false)}>
           <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
-            הערב יימחק לגמרי, על כל הכניסות שנרשמו בו. אין דרך חזרה.
+            השולחן יימחק לגמרי, על כל הכניסות שנרשמו בו. אין דרך חזרה.
           </p>
           <div className="row">
             <button
               className="btn btn-danger"
               onClick={() => {
                 dirty.current = false;
-                void deleteGame(game.id).then(() => onToast('הערב בוטל'));
+                void deleteGame(game.id).then(() => onToast('השולחן בוטל'));
                 setConfirmCancel(false);
                 onClose('');
               }}

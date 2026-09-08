@@ -42,6 +42,10 @@ export interface Api {
   saveGame(game: Omit<Game, 'createdAt'> & { createdAt?: string }, isNew: boolean): Promise<Game>;
   deleteGame(gameId: ID): Promise<void>;
   setPaidTransfers(gameId: ID, keys: string[]): Promise<void>;
+  /** סימון של המשלם שהעביר את הכסף */
+  markTransferSent(gameId: ID, fromPlayer: ID, toPlayer: ID, value: boolean): Promise<void>;
+  /** אישור של המקבל שהכסף הגיע */
+  confirmTransferReceived(gameId: ID, fromPlayer: ID, toPlayer: ID, value: boolean): Promise<void>;
 
   /** מנוי לשינויים בקלאב; מחזיר פונקציית ביטול */
   subscribe(clubId: ID, onChange: () => void): () => void;
@@ -66,13 +70,19 @@ export function errorMessage(e: unknown): string {
       return 'שם משתמש או סיסמה שגויים.';
     case 'NOT_ADMIN':
       return 'רק אדמין הקלאב יכול לעשות את זה.';
+    case 'NOT_ALLOWED':
+      return 'רק מי שההעברה שייכת לו יכול לסמן אותה.';
     case 'NOT_AUTHENTICATED':
       return 'צריך להתחבר קודם.';
     default:
       if (/Invalid login credentials/i.test(raw)) return 'שם משתמש או סיסמה שגויים.';
       if (/already registered|User already/i.test(raw)) return 'שם המשתמש הזה כבר תפוס. נסו אחר.';
       if (/Password should be/i.test(raw)) return 'הסיסמה קצרה מדי — לפחות 6 תווים.';
-      // עמודת status נוספה בעדכון "ערב חי" — הודעה ברורה אם המיגרציה לא הורצה
+      if (/NOT_ALLOWED/.test(raw)) return 'רק מי שההעברה שייכת לו יכול לסמן אותה.';
+      if (/transfer_settlements|mark_transfer_sent|confirm_transfer_received/.test(raw)) {
+        return 'חסר עדכון בבסיס הנתונים: הריצו את supabase/migrations/002-settlements.sql ב-SQL Editor של Supabase.';
+      }
+      // עמודת status נוספה בעדכון "שולחן חי" — הודעה ברורה אם המיגרציה לא הורצה
       if (/column .*status.* does not exist|'status' column/i.test(raw)) {
         return 'חסר עדכון בבסיס הנתונים: הריצו את supabase/migrations/001-live-games.sql ב-SQL Editor של Supabase.';
       }

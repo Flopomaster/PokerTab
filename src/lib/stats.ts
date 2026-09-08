@@ -48,7 +48,7 @@ export function summarizeGame(game: Game): GameSummary {
   return { game, results, totalBuyIn, totalCashOut, diff, balanced: Math.abs(diff) < 0.005 };
 }
 
-/** ממיין ערבים כרונולוגית (הישן ראשון). */
+/** ממיין שולחנות כרונולוגית (הישן ראשון). */
 export function sortGames(games: Game[]): Game[] {
   return [...games].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
@@ -78,9 +78,9 @@ export interface PlayerStats {
   currentStreak: number;
   longestWinStreak: number;
   longestLoseStreak: number;
-  /** סטיית תקן של תוצאות הערב — מדד תנודתיות */
+  /** סטיית תקן של תוצאות השולחן — מדד תנודתיות */
   volatility: number;
-  /** ההפרש הגדול ביותר בין ערב מפסיד לערב הבא אחריו */
+  /** ההפרש הגדול ביותר בין שולחן מפסיד לשולחן הבא אחריו */
   bestComeback: number;
   ranks: number[];
   nets: number[];
@@ -125,7 +125,7 @@ const EMPTY_STATS = (player: Player): PlayerStats => ({
 });
 
 export function computeStats(games: Game[], players: Player[]): StatsBundle {
-  // ערב שעדיין מתנהל אינו נספר: אין בו סכומי יציאה, וכל השחקנים
+  // שולחן שעדיין מתנהל אינו נספר: אין בו סכומי יציאה, וכל השחקנים
   // היו נראים בהפסד של גובה הכניסות עד לסגירתו
   const chronological = sortGames(games.filter((g) => g.status !== 'live'));
   const summaries = chronological.map(summarizeGame);

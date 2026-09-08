@@ -1,6 +1,6 @@
 import type { Api, JoinResult } from './api';
 import { ApiError } from './api';
-import type { Club, ClubData, Game, ID, Membership, MyMembership, Player, Profile, Role, SignUpInput } from '../types';
+import type { Club, ClubData, Game, ID, Membership, MyMembership, Player, Profile, Role, Settlement, SignUpInput } from '../types';
 
 /**
  * מימוש מקומי לצורכי הדגמה בלבד — כל ה"משתמשים" חיים באותו דפדפן.
@@ -22,9 +22,10 @@ interface DemoState {
   members: Membership[];
   players: Player[];
   games: Game[];
+  settlements: Settlement[];
 }
 
-const empty = (): DemoState => ({ users: [], sessionUserId: null, clubs: [], members: [], players: [], games: [] });
+const empty = (): DemoState => ({ users: [], sessionUserId: null, clubs: [], members: [], players: [], games: [], settlements: [] });
 
 function load(): DemoState {
   try {
@@ -81,6 +82,18 @@ export function createDemoApi(): Api {
     const u = state.users.find((x) => x.id === state.sessionUserId);
     if (!u) throw new ApiError('NOT_AUTHENTICATED', 'not authenticated');
     return u;
+  };
+
+  const upsertSettlement = (gameId: ID, fromPlayer: ID, toPlayer: ID): Settlement => {
+    if (!state.settlements) state.settlements = [];
+    let row = state.settlements.find(
+      (x) => x.gameId === gameId && x.fromPlayer === fromPlayer && x.toPlayer === toPlayer,
+    );
+    if (!row) {
+      row = { gameId, fromPlayer, toPlayer, senderMarked: false, receiverConfirmed: false };
+      state.settlements.push(row);
+    }
+    return row;
   };
 
   const requireAdmin = (clubId: ID) => {
@@ -298,10 +311,25 @@ export function createDemoApi(): Api {
 
     async loadClubData(clubId): Promise<ClubData> {
       state = load();
+      const games = state.games.filter((g) => g.clubId === clubId);
+      const ids = new Set(games.map((g) => g.id));
       return {
         players: state.players.filter((p) => p.clubId === clubId),
-        games: state.games.filter((g) => g.clubId === clubId),
+        games,
+        settlements: (state.settlements ?? []).filter((x) => ids.has(x.gameId)),
       };
+    },
+
+    async markTransferSent(gameId, fromPlayer, toPlayer, value) {
+      const row = upsertSettlement(gameId, fromPlayer, toPlayer);
+      row.senderMarked = value;
+      persist();
+    },
+
+    async confirmTransferReceived(gameId, fromPlayer, toPlayer, value) {
+      const row = upsertSettlement(gameId, fromPlayer, toPlayer);
+      row.receiverConfirmed = value;
+      persist();
     },
 
     async createPlayer(clubId, input) {

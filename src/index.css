@@ -34,6 +34,8 @@ body {
   /* תחושת אפליקציה: בלי הבזק כחול בלחיצה ובלי גרירת בחירה על כפתורים */
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  /* גלילה בלבד: בלי זום בהקשה כפולה ובלי בחירת טקסט בגרירה */
+  touch-action: pan-x pan-y;
 }
 
 .btn, .tab, .chip, .lb-row, .game-row, .check, .emoji-opt, .color-opt {

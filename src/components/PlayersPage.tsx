@@ -38,7 +38,7 @@ export function PlayersPage() {
         <Empty
           icon="👥"
           title="אין עדיין שחקנים"
-          text="הוסיפו את החבורה — אפשר גם להוסיף שחקנים תוך כדי יצירת ערב."
+          text="הוסיפו את החבורה — אפשר גם להוסיף שחקנים תוך כדי יצירת שולחן."
           action={<button className="btn btn-primary" onClick={() => setCreating(true)}>+ שחקן חדש</button>}
         />
       ) : (
@@ -52,7 +52,7 @@ export function PlayersPage() {
                   <div style={{ minWidth: 0 }}>
                     <div className="lb-name">{p.name}{p.archived ? ' (בארכיון)' : ''}</div>
                     <div className="lb-sub">
-                      {s && s.games > 0 ? `${s.games} ערבים · אחרון ${formatDate(s.lastPlayed!)}` : 'עוד לא שיחק'}
+                      {s && s.games > 0 ? `${s.games} שולחנות · אחרון ${formatDate(s.lastPlayed!)}` : 'עוד לא שיחק'}
                       {p.userId ? ' · חבר קלאב' : ' · אורח'}
                     </div>
                   </div>
@@ -147,7 +147,7 @@ function EditPlayerModal({
 
       <label className="row" style={{ gap: 8, fontSize: 13.5, cursor: 'pointer', marginBottom: 16 }}>
         <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} />
-        בארכיון (לא מוצע יותר בערבים חדשים)
+        בארכיון (לא מוצע יותר בשולחנות חדשים)
       </label>
 
       <div className="row">
@@ -162,7 +162,7 @@ function EditPlayerModal({
       {confirm && (
         <div className="balance-banner bad" style={{ marginTop: 14, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
           <span>
-            מחיקת {player.name} תסיר אותו גם מ־{gamesPlayed} ערבים שנרשמו, וההעברות ההיסטוריות ישתנו. להמשיך?
+            מחיקת {player.name} תסיר אותו גם מ־{gamesPlayed} שולחנות שנרשמו, וההעברות ההיסטוריות ישתנו. להמשיך?
           </span>
           <div className="row">
             <button className="btn btn-sm btn-danger" onClick={onDelete}>כן, למחוק</button>

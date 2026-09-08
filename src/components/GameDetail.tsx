@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import type { Game } from '../types';
 import { useStore } from '../state/store';
 import { computeTransfers, transferKey } from '../lib/settle';
+import { errorMessage } from '../lib/api';
 import { summarizeGame } from '../lib/stats';
 import { formatDateLong, money, rankBadge, signedMoney } from '../lib/format';
 import { Avatar, Modal } from './ui';
 
 export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBack: () => void; onEdit: () => void; onToast: (m: string) => void }) {
-  const { players, deleteGame, toggleTransferPaid, canEditGame, members } = useStore();
+  const { players, deleteGame, canEditGame, canActForPlayer, settlementFor, markTransferSent, confirmTransferReceived, members } = useStore();
+  const [actionError, setActionError] = useState<string | null>(null);
   const canEdit = canEditGame(game);
   const dealer = members.find((m) => m.userId === game.dealerId)?.profile;
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -23,7 +25,7 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
 
   const shareText = useMemo(() => {
     const lines: string[] = [];
-    lines.push(`🃏 ערב פוקר — ${formatDateLong(game.date)}`);
+    lines.push(`🃏 שולחן פוקר — ${formatDateLong(game.date)}`);
     if (game.location) lines.push(`📍 ${game.location}`);
     lines.push(`💰 קופה: ${money(summary.totalBuyIn)} · כניסה: ${money(game.buyInAmount)}`);
     lines.push('');
@@ -55,14 +57,23 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
     }
   };
 
-  const paidCount = transfers.filter((t) => game.paidTransfers.includes(transferKey(t))).length;
+  const doneCount = transfers.filter((t) => settlementFor(game.id, t.from, t.to)?.receiverConfirmed).length;
+
+  const act = async (fn: () => Promise<void>) => {
+    setActionError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    }
+  };
 
   return (
     <div className="fade-in">
       <div className="section-head">
         <div>
           <button className="btn btn-sm btn-ghost" style={{ marginBottom: 8 }} onClick={onBack}>→ חזרה</button>
-          <h1>{game.title || 'ערב פוקר'}</h1>
+          <h1>{game.title || 'שולחן פוקר'}</h1>
           <p>
             {formatDateLong(game.date)}
             {game.location ? ` · ${game.location}` : ''} · כניסה {money(game.buyInAmount)}
@@ -87,12 +98,18 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
       <div className="card">
         <div className="card-title">
           <h2>💸 מי מעביר למי</h2>
-          <span className="hint">{transfers.length} העברות · {paidCount} שולמו</span>
+          <span className="hint">{transfers.length} העברות · {doneCount} אושרו</span>
         </div>
+
+        <p className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
+          כל אחד מסמן על עצמו שהעביר, והמקבל מאשר שהכסף הגיע. חוב שלא אושר יקפוץ כאזהרה בשולחן הבא.
+        </p>
+
+        {actionError && <div className="balance-banner bad" style={{ marginBottom: 12 }}>{actionError}</div>}
 
         {!canEdit && (
           <p className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
-            צפייה בלבד — רק הדילר של הערב ואדמין הקלאב יכולים לערוך אותו.
+            את הסכומים עצמם יכולים לערוך רק הדילר של השולחן ואדמין הקלאב.
           </p>
         )}
 
@@ -101,27 +118,51 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
         ) : (
           transfers.map((t) => {
             const key = transferKey(t);
-            const paid = game.paidTransfers.includes(key);
+            const state = settlementFor(game.id, t.from, t.to);
+            const sent = !!state?.senderMarked;
+            const confirmed = !!state?.receiverConfirmed;
+            const iAmPayer = canActForPlayer(game, t.from);
+            const iAmReceiver = canActForPlayer(game, t.to);
+
             return (
-              <div className={`transfer${paid ? ' paid' : ''}`} key={key}>
-                <button
-                  className={`check${paid ? ' on' : ''}`}
-                  onClick={() => canEdit && void toggleTransferPaid(game.id, key)}
-                  disabled={!canEdit}
-                  title={canEdit ? 'סימון כשולם' : 'רק הדילר של הערב או אדמין הקלאב יכולים לסמן'}
-                >
-                  {paid ? '✓' : ''}
-                </button>
-                <div className="transfer-flow">
-                  <span className="transfer-who">
-                    <Avatar player={playerOf(t.from)} size="sm" /> {nameOf(t.from)}
-                  </span>
-                  <span className="transfer-arrow">←</span>
-                  <span className="transfer-who">
-                    <Avatar player={playerOf(t.to)} size="sm" /> {nameOf(t.to)}
-                  </span>
+              <div className={`transfer${confirmed ? ' paid' : ''}`} key={key} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                <div className="row between" style={{ gap: 10 }}>
+                  <div className="transfer-flow">
+                    <span className="transfer-who">
+                      <Avatar player={playerOf(t.from)} size="sm" /> {nameOf(t.from)}
+                    </span>
+                    <span className="transfer-arrow">←</span>
+                    <span className="transfer-who">
+                      <Avatar player={playerOf(t.to)} size="sm" /> {nameOf(t.to)}
+                    </span>
+                  </div>
+                  <span className="transfer-amount">{money(t.amount)}</span>
                 </div>
-                <span className="transfer-amount">{money(t.amount)}</span>
+
+                <div className="row between" style={{ gap: 8 }}>
+                  <span className={`chip ${confirmed ? 'pos' : sent ? 'gold' : ''}`}>
+                    {confirmed ? '✓ הועבר ואושר' : sent ? `⏳ ממתין לאישור ${nameOf(t.to)}` : 'טרם הועבר'}
+                  </span>
+
+                  <div className="row" style={{ gap: 6 }}>
+                    {iAmPayer && !confirmed && (
+                      <button
+                        className={`btn btn-sm${sent ? '' : ' btn-primary'}`}
+                        onClick={() => void act(() => markTransferSent(game.id, t.from, t.to, !sent))}
+                      >
+                        {sent ? 'ביטול הסימון' : 'העברתי'}
+                      </button>
+                    )}
+                    {iAmReceiver && (
+                      <button
+                        className={`btn btn-sm${confirmed ? '' : ' btn-primary'}`}
+                        onClick={() => void act(() => confirmTransferReceived(game.id, t.from, t.to, !confirmed))}
+                      >
+                        {confirmed ? 'ביטול האישור' : 'קיבלתי ✓'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })
@@ -137,7 +178,7 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
 
       <div className="card">
         <div className="card-title">
-          <h2>🏁 תוצאות הערב</h2>
+          <h2>🏁 תוצאות השולחן</h2>
           <span className="hint">קופה: {money(summary.totalBuyIn)}</span>
         </div>
         <div className="table-wrap">
@@ -181,9 +222,9 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
       </div>
 
       {confirmDelete && (
-        <Modal title="למחוק את הערב?" onClose={() => setConfirmDelete(false)}>
+        <Modal title="למחוק את השולחן?" onClose={() => setConfirmDelete(false)}>
           <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
-            הערב מ־{formatDateLong(game.date)} יימחק לצמיתות, וכל הסטטיסטיקות יחושבו מחדש בלעדיו.
+            השולחן מ־{formatDateLong(game.date)} יימחק לצמיתות, וכל הסטטיסטיקות יחושבו מחדש בלעדיו.
           </p>
           <div className="row">
             <button
