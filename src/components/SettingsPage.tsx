@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { exportToFile } from '../lib/storage';
 import { buildDemoData } from '../lib/demo';
 import { Modal } from './ui';
+import { InstallCard } from './InstallCard';
 
 export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
   const { data, updateSettings, replaceAll, resetAll } = useStore();
@@ -32,6 +33,8 @@ export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
           <p>הנתונים נשמרים בדפדפן הזה בלבד. גיבוי ושיתוף נעשים דרך קובץ JSON.</p>
         </div>
       </div>
+
+      <InstallCard />
 
       <div className="card">
         <div className="card-title"><h2>⚙️ כללי</h2></div>

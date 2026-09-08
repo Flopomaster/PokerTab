@@ -8,6 +8,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { StatsPage } from './components/StatsPage';
 import { PlayersPage } from './components/PlayersPage';
 import { SettingsPage } from './components/SettingsPage';
+import { AppIcon } from './icons/AppIcon';
 
 type Tab = 'home' | 'games' | 'leaderboard' | 'stats' | 'players' | 'settings';
 
@@ -52,7 +53,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">🃏</div>
+          <div className="brand-mark"><AppIcon size={44} /></div>
           <div>
             <div className="brand-title">PokerTab</div>
             <div className="brand-sub">מי חייב למי, וכמה — בלי ויכוחים</div>
