@@ -69,3 +69,43 @@ export function Empty({ icon, title, text, action }: { icon: string; title: stri
     </div>
   );
 }
+
+/** בורר כמות עם − ו-+ — נוח יותר מהקלדה תוך כדי משחק. */
+export function Stepper({
+  value,
+  onChange,
+  min = 0,
+  max = 99,
+  suffix,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  suffix?: string;
+}) {
+  return (
+    <div className="stepper">
+      <button
+        className="stepper-btn"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={value <= min}
+        aria-label="פחות"
+      >
+        −
+      </button>
+      <span className="stepper-value num">
+        {value}
+        {suffix && <span className="stepper-suffix">{suffix}</span>}
+      </span>
+      <button
+        className="stepper-btn"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={value >= max}
+        aria-label="עוד"
+      >
+        +
+      </button>
+    </div>
+  );
+}

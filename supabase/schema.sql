@@ -58,6 +58,8 @@ create table if not exists public.games (
   notes          text not null default '',
   buy_in_amount  numeric not null default 100,
   dealer_id      uuid references public.profiles(id) on delete set null,
+  -- live = הערב עדיין מתנהל; closed = הוזנו סכומי היציאה והערב נסגר
+  status         text not null default 'closed',
   paid_transfers text[] not null default '{}',
   created_at     timestamptz not null default now()
 );

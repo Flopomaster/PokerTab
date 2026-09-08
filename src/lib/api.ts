@@ -72,6 +72,10 @@ export function errorMessage(e: unknown): string {
       if (/Invalid login credentials/i.test(raw)) return 'שם משתמש או סיסמה שגויים.';
       if (/already registered|User already/i.test(raw)) return 'שם המשתמש הזה כבר תפוס. נסו אחר.';
       if (/Password should be/i.test(raw)) return 'הסיסמה קצרה מדי — לפחות 6 תווים.';
+      // עמודת status נוספה בעדכון "ערב חי" — הודעה ברורה אם המיגרציה לא הורצה
+      if (/column .*status.* does not exist|'status' column/i.test(raw)) {
+        return 'חסר עדכון בבסיס הנתונים: הריצו את supabase/migrations/001-live-games.sql ב-SQL Editor של Supabase.';
+      }
       return raw || 'משהו השתבש. נסו שוב.';
   }
 }

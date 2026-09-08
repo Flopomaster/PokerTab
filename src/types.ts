@@ -52,9 +52,13 @@ export interface GameEntry {
   cashOut: number;
 }
 
+export type GameStatus = 'live' | 'closed';
+
 export interface Game {
   id: ID;
   clubId: ID;
+  /** live = הערב מתנהל עכשיו; closed = נסגר וחושבו ההעברות */
+  status: GameStatus;
   date: string;
   title: string;
   location: string;

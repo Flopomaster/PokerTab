@@ -6,6 +6,7 @@ import { Avatar, Empty } from './ui';
 
 export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; onOpenGame: (id: string) => void }) {
   const { players, games } = useStore();
+  const liveGame = games.find((g) => g.status === 'live');
   const stats = useMemo(() => computeStats(games, players), [games, players]);
   const [filter, setFilter] = useState<string>('all');
 
@@ -34,8 +35,14 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
           <h1>היסטוריית ערבים</h1>
           <p>{visibleGames.length} ערבים · לחיצה פותחת את הסיכום וההעברות.</p>
         </div>
-        <button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>
+        <button className="btn btn-primary" onClick={onNewGame} disabled={!!liveGame}>+ ערב חדש</button>
       </div>
+
+      {liveGame && (
+        <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+          יש ערב שמתנהל עכשיו — צריך לסגור אותו לפני שפותחים חדש.
+        </p>
+      )}
 
       <div className="row" style={{ marginBottom: 14, gap: 8 }}>
         <button className={`chip${filter === 'all' ? ' gold' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')}>
@@ -58,12 +65,15 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
                 <div className="game-date">
                   {formatDate(g.date)} {g.title && <span className="muted" style={{ fontWeight: 500 }}>· {g.title}</span>}
                 </div>
+                {g.status === 'live' && (
+                  <div className="live-badge" style={{ marginTop: 6 }}><span className="live-dot" /> מתנהל עכשיו</div>
+                )}
                 <div className="game-meta">
                   {g.entries.length} שחקנים · קופה {money(s?.totalBuyIn ?? 0)}
                   {g.location ? ` · ${g.location}` : ''}
-                  {!s?.balanced ? ' · ⚠️ לא מאוזן' : ''}
+                  {g.status !== 'live' && !s?.balanced ? ' · ⚠️ לא מאוזן' : ''}
                 </div>
-                {winner && (
+                {g.status !== 'live' && winner && (
                   <div className="row" style={{ marginTop: 7, gap: 6 }}>
                     <span className="chip pos">🥇 {playerOf(winner.playerId)?.name} {signedMoney(winner.net)}</span>
                     {s && s.results.length > 1 && (

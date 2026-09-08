@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { GamesPage } from './components/GamesPage';
 import { GameEditor } from './components/GameEditor';
 import { GameDetail } from './components/GameDetail';
+import { LiveGame } from './components/LiveGame';
 import { Leaderboard } from './components/Leaderboard';
 import { StatsPage } from './components/StatsPage';
 import { PlayersPage } from './components/PlayersPage';
@@ -20,6 +21,7 @@ type Tab = 'home' | 'games' | 'leaderboard' | 'stats' | 'players' | 'club' | 'se
 type View =
   | { kind: 'tab'; tab: Tab }
   | { kind: 'game'; id: string }
+  | { kind: 'live'; id: string }
   | { kind: 'editor'; gameId: string | null };
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -64,11 +66,15 @@ export default function App() {
   if (!profile) return <AuthScreen />;
 
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
-  const openGame = (id: string) => setView({ kind: 'game', id });
+  const openGame = (id: string) => {
+    // ערב שעדיין מתנהל נפתח במסך הניהול החי ולא בסיכום
+    const g = games.find((x) => x.id === id);
+    setView(g?.status === 'live' ? { kind: 'live', id } : { kind: 'game', id });
+  };
   const newGame = () => setView({ kind: 'editor', gameId: null });
 
   const pendingCount = members.filter((m) => m.status === 'pending').length;
-  const currentGame = view.kind === 'game' ? games.find((g) => g.id === view.id) : undefined;
+  const currentGame = view.kind === 'game' || view.kind === 'live' ? games.find((g) => g.id === view.id) : undefined;
   const editingGame = view.kind === 'editor' && view.gameId ? games.find((g) => g.id === view.gameId) ?? null : null;
 
   const header = (
@@ -124,12 +130,23 @@ export default function App() {
               <GameEditor
                 game={editingGame}
                 onDone={(id) => {
-                  openGame(id);
-                  setToast(editingGame ? 'הערב עודכן ✓' : 'הערב נשמר ✓');
+                  setView(editingGame ? { kind: 'game', id } : { kind: 'live', id });
+                  setToast(editingGame ? 'הערב עודכן ✓' : 'הערב התחיל 🎲');
                 }}
                 onCancel={() => (editingGame ? openGame(editingGame.id) : goTab('games'))}
               />
             )}
+
+            {view.kind === 'live' &&
+              (currentGame ? (
+                <LiveGame
+                  game={currentGame}
+                  onClose={(id) => (id ? setView({ kind: 'game', id }) : goTab('home'))}
+                  onToast={setToast}
+                />
+              ) : (
+                <div className="empty">הערב לא נמצא.</div>
+              ))}
 
             {view.kind === 'game' &&
               (currentGame ? (

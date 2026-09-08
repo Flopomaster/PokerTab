@@ -44,6 +44,7 @@ interface GameRow {
   notes: string;
   buy_in_amount: number | string;
   dealer_id: string | null;
+  status?: string | null;
   paid_transfers: string[] | null;
   created_at: string;
   game_entries?: EntryRow[];
@@ -96,6 +97,7 @@ const toGame = (r: GameRow): Game => ({
   notes: r.notes ?? '',
   buyInAmount: num(r.buy_in_amount),
   dealerId: r.dealer_id,
+  status: r.status === 'live' ? 'live' : 'closed',
   paidTransfers: r.paid_transfers ?? [],
   createdAt: r.created_at,
   entries: (r.game_entries ?? []).map((e) => ({
@@ -395,6 +397,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
         notes: game.notes,
         buy_in_amount: game.buyInAmount,
         dealer_id: game.dealerId,
+        status: game.status,
         paid_transfers: game.paidTransfers,
       };
       // חשוב: לא upsert. upsert על שורה קיימת נבדק גם מול מדיניות ה-INSERT,

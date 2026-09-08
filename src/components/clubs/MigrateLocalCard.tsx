@@ -53,6 +53,7 @@ export function MigrateLocalCard({ onToast }: { onToast: (m: string) => void }) 
           notes: game.notes ?? '',
           buyInAmount: Number(game.buyInAmount) || 0,
           dealerId: profile?.id ?? null,
+          status: 'closed',
           entries,
           paidTransfers: game.paidTransfers ?? [],
           createdAt: game.createdAt ?? new Date().toISOString(),

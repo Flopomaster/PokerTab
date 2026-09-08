@@ -10,6 +10,10 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
   const pendingRequests = members.filter((m) => m.status === 'pending');
   const stats = useMemo(() => computeStats(games, players), [games, players]);
 
+  const liveGame = games.find((g) => g.status === 'live');
+  const livePot = liveGame
+    ? round2(liveGame.entries.reduce((sum, e) => sum + e.buyIns * liveGame.buyInAmount + e.extraBuyIn, 0))
+    : 0;
   const lastSummary = stats.summaries[stats.summaries.length - 1];
   const lastTransfers = useMemo(
     () => (lastSummary ? computeTransfers(lastSummary.results.map((r) => ({ id: r.playerId, net: r.net }))) : []),
@@ -21,16 +25,32 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '—';
   const playerOf = (id: string) => players.find((p) => p.id === id);
 
-  if (games.length === 0) {
-    return (
-      <div className="fade-in">
-        <div className="section-head">
+  const liveCard = liveGame ? (
+      <button className="live-card" onClick={() => onOpenGame(liveGame.id)}>
+        <div className="row between" style={{ width: '100%' }}>
+          <div className="live-badge"><span className="live-dot" /> ערב מתנהל עכשיו</div>
+          <span className="chip gold">לניהול →</span>
+        </div>
+        <div className="row" style={{ gap: 16, marginTop: 10, width: '100%' }}>
           <div>
-            <h1>{club?.name ?? 'הקלאב'}</h1>
-            <p>הכל מתחיל בערב הראשון.</p>
+            <div className="label muted" style={{ fontSize: 12 }}>בקופה</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--gold)' }}>{money(livePot)}</div>
+          </div>
+          <div>
+            <div className="label muted" style={{ fontSize: 12 }}>שחקנים</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>{liveGame.entries.length}</div>
+          </div>
+          <span className="spacer" />
+          <div className="stack-avatars">
+            {liveGame.entries.slice(0, 5).map((e) => (
+              <Avatar key={e.playerId} player={playerOf(e.playerId)} size="sm" />
+            ))}
           </div>
         </div>
-      {isAdmin && pendingRequests.length > 0 && (
+      </button>
+      ) : null;
+
+  const pendingBanner = isAdmin && pendingRequests.length > 0 ? (
         <button className="pending-banner" onClick={() => onGoto('club')}>
           <span style={{ fontSize: 22 }}>⏳</span>
           <div>
@@ -44,7 +64,23 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
           <span className="spacer" />
           <span className="chip gold">לאישור →</span>
         </button>
-      )}
+      ) : null;
+
+  // ערב שמתנהל עכשיו מוצג בנפרד ואינו נחשב ערב שנרשם
+  const closedGames = games.filter((g) => g.status !== 'live');
+
+  if (closedGames.length === 0) {
+    return (
+      <div className="fade-in">
+        <div className="section-head">
+          <div>
+            <h1>{club?.name ?? 'הקלאב'}</h1>
+            <p>הכל מתחיל בערב הראשון.</p>
+          </div>
+        </div>
+      {liveCard}
+
+      {pendingBanner}
 
         <Empty
           icon="🃏"
@@ -67,37 +103,25 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
     );
   }
 
-  const recent = sortGames(games).slice(-4).reverse();
+  const recent = sortGames(closedGames).slice(-4).reverse();
 
   return (
     <div className="fade-in">
       <div className="section-head">
         <div>
           <h1>{club?.name ?? 'הקלאב'}</h1>
-          <p>{games.length} ערבים · {activeStats.length} שחקנים · {money(totalPot)} עברו על השולחן</p>
+          <p>{closedGames.length} ערבים · {activeStats.length} שחקנים · {money(totalPot)} עברו על השולחן</p>
         </div>
-        <button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>
+        <button className="btn btn-primary" onClick={onNewGame} disabled={!!liveGame}>+ ערב חדש</button>
       </div>
 
-      {isAdmin && pendingRequests.length > 0 && (
-        <button className="pending-banner" onClick={() => onGoto('club')}>
-          <span style={{ fontSize: 22 }}>⏳</span>
-          <div>
-            <div style={{ fontWeight: 900 }}>
-              {pendingRequests.length === 1
-                ? `${pendingRequests[0].profile?.displayName ?? 'מישהו'} מבקש להצטרף לקלאב`
-                : `${pendingRequests.length} בקשות הצטרפות ממתינות לאישור`}
-            </div>
-            <div className="lb-sub">לחצו כדי לאשר או לדחות</div>
-          </div>
-          <span className="spacer" />
-          <span className="chip gold">לאישור →</span>
-        </button>
-      )}
+      {liveCard}
+
+      {pendingBanner}
 
       <div className="stat-grid" style={{ marginBottom: 14 }}>
-        <Stat label="ערבים שנרשמו" value={games.length} sub={`מאז ${formatDate(stats.summaries[0].game.date)}`} />
-        <Stat label="סה״כ קופה" value={money(totalPot)} sub={`ממוצע ${money(round2(totalPot / games.length))} לערב`} tone="gold" />
+        <Stat label="ערבים שנרשמו" value={closedGames.length} sub={stats.summaries[0] ? `מאז ${formatDate(stats.summaries[0].game.date)}` : undefined} />
+        <Stat label="סה״כ קופה" value={money(totalPot)} sub={`ממוצע ${money(round2(totalPot / Math.max(1, closedGames.length)))} לערב`} tone="gold" />
         <Stat
           label="המוביל"
           value={activeStats[0] ? `${activeStats[0].player.emoji} ${activeStats[0].player.name}` : '—'}

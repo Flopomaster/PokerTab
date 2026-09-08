@@ -4,7 +4,7 @@ import { useStore } from '../state/store';
 import { newId } from '../lib/storage';
 import { entryBuyIn } from '../lib/stats';
 import { money, round2, signedMoney, todayISO } from '../lib/format';
-import { Avatar } from './ui';
+import { Avatar, Stepper } from './ui';
 import { errorMessage } from '../lib/api';
 
 function num(v: string): number {
@@ -13,6 +13,8 @@ function num(v: string): number {
 }
 
 export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDone: (id: string) => void; onCancel: () => void }) {
+  // ערב חדש נפתח כ"חי" ומנוהל תוך כדי; עריכה נוגעת רק לערב שכבר נסגר
+  const isNew = !game;
   const { players, activePlayers, addPlayer, saveGame, club, profile } = useStore();
 
   const [date, setDate] = useState(game?.date ?? todayISO());
@@ -75,6 +77,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
         buyInAmount,
         // הדילר הוא מי שפתח את הערב; בעריכה הוא נשאר מי שהיה
         dealerId: game?.dealerId ?? profile?.id ?? null,
+        status: game?.status ?? 'live',
         entries,
         paidTransfers: game?.paidTransfers ?? [],
         createdAt: game?.createdAt ?? new Date().toISOString(),
@@ -95,8 +98,12 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
     <div className="fade-in">
       <div className="section-head">
         <div>
-          <h1>{game ? 'עריכת ערב' : 'ערב חדש'}</h1>
-          <p>הזינו כמה כל אחד נכנס וכמה יצא — החישוב של מי מעביר למי נעשה אוטומטית.</p>
+          <h1>{isNew ? 'פתיחת ערב' : 'עריכת ערב'}</h1>
+          <p>
+            {isNew
+              ? 'בוחרים מי יושב לשולחן ומתחילים. אפשר להוסיף כניסות ושחקנים תוך כדי המשחק.'
+              : 'עדכון הסכומים של ערב שכבר נסגר — ההעברות יחושבו מחדש.'}
+          </p>
         </div>
         <button className="btn btn-ghost" onClick={onCancel}>ביטול</button>
       </div>
@@ -132,32 +139,25 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
 
         {entries.length > 0 && (
           <>
-            <div className="entry-labels">
+            <div className="entry-labels" style={isNew ? { gridTemplateColumns: 'minmax(120px, 1.4fr) 132px 100px auto' } : undefined}>
               <span>שחקן</span>
               <span style={{ textAlign: 'center' }}>כניסות</span>
               <span style={{ textAlign: 'center' }}>תוספת ₪</span>
-              <span style={{ textAlign: 'center' }}>יצא עם ₪</span>
-              <span style={{ textAlign: 'center' }}>מאזן</span>
+              {!isNew && <span style={{ textAlign: 'center' }}>יצא עם ₪</span>}
+              <span style={{ textAlign: 'center' }}>{isNew ? 'סה״כ' : 'מאזן'}</span>
             </div>
             {entries.map((e) => {
               const player = players.find((p) => p.id === e.playerId);
               const net = round2(e.cashOut - entryBuyIn(e, buyInAmount));
               return (
-                <div className="entry" key={e.playerId}>
+                <div className="entry" key={e.playerId} style={isNew ? { gridTemplateColumns: 'minmax(120px, 1.4fr) 132px 100px auto' } : undefined}>
                   <div className="who">
                     <Avatar player={player} size="sm" />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{player?.name ?? '—'}</span>
                   </div>
                   <div>
                     <div className="mobile-label">כניסות</div>
-                    <input
-                      className="input num"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={e.buyIns}
-                      onChange={(ev) => patch(e.playerId, { buyIns: num(ev.target.value) })}
-                    />
+                    <Stepper value={e.buyIns} min={0} onChange={(v) => patch(e.playerId, { buyIns: v })} />
                   </div>
                   <div>
                     <div className="mobile-label">תוספת ₪</div>
@@ -170,19 +170,26 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
                       onChange={(ev) => patch(e.playerId, { extraBuyIn: num(ev.target.value) })}
                     />
                   </div>
-                  <div>
-                    <div className="mobile-label">יצא עם ₪</div>
-                    <input
-                      className="input num"
-                      type="number"
-                      step={5}
-                      value={e.cashOut || ''}
-                      placeholder="0"
-                      onChange={(ev) => patch(e.playerId, { cashOut: num(ev.target.value) })}
-                    />
-                  </div>
+                  {!isNew && (
+                    <div>
+                      <div className="mobile-label">יצא עם ₪</div>
+                      <input
+                        className="input num"
+                        type="number"
+                        step={5}
+                        inputMode="decimal"
+                        value={e.cashOut || ''}
+                        placeholder="0"
+                        onChange={(ev) => patch(e.playerId, { cashOut: num(ev.target.value) })}
+                      />
+                    </div>
+                  )}
                   <div className="tail">
-                    <span className={`entry-net ${net > 0 ? 'pos' : net < 0 ? 'neg' : 'muted'}`}>{signedMoney(net)}</span>
+                    {isNew ? (
+                      <span className="entry-net muted">{money(entryBuyIn(e, buyInAmount))}</span>
+                    ) : (
+                      <span className={`entry-net ${net > 0 ? 'pos' : net < 0 ? 'neg' : 'muted'}`}>{signedMoney(net)}</span>
+                    )}
                     <button className="btn btn-sm btn-ghost" onClick={() => unseat(e.playerId)} title="הסרה מהשולחן">✕</button>
                   </div>
                 </div>
@@ -213,13 +220,20 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
       </div>
 
       <div className="card">
-        <div className="stat-grid" style={{ marginBottom: 14 }}>
-          <Tile label="סה״כ נכנס לקופה" value={money(totals.buyIn)} />
-          <Tile label="סה״כ יצא מהשולחן" value={money(totals.cashOut)} />
-          <Tile label="הפרש" value={signedMoney(totals.diff)} tone={balanced ? 'ok' : 'bad'} />
-        </div>
+        {isNew ? (
+          <div className="stat-grid" style={{ marginBottom: 14 }}>
+            <Tile label="סה״כ בקופה" value={money(totals.buyIn)} />
+            <Tile label="שחקנים" value={String(entries.length)} />
+          </div>
+        ) : (
+          <div className="stat-grid" style={{ marginBottom: 14 }}>
+            <Tile label="סה״כ נכנס לקופה" value={money(totals.buyIn)} />
+            <Tile label="סה״כ יצא מהשולחן" value={money(totals.cashOut)} />
+            <Tile label="הפרש" value={signedMoney(totals.diff)} tone={balanced ? 'ok' : 'bad'} />
+          </div>
+        )}
 
-        <div className={`balance-banner ${balanced ? 'ok' : 'bad'}`}>
+        {!isNew && <div className={`balance-banner ${balanced ? 'ok' : 'bad'}`}>
           <span style={{ fontSize: 18 }}>{balanced ? '✓' : '⚠️'}</span>
           {balanced ? (
             <span>הקופה מאוזנת — מה שנכנס שווה למה שיצא.</span>
@@ -228,9 +242,9 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
               חסרים {money(Math.abs(totals.diff))} {totals.diff > 0 ? 'יותר מדי בקופה' : 'בקופה'} — בדקו את הספירה או אזנו על שחקן.
             </span>
           )}
-        </div>
+        </div>}
 
-        {!balanced && entries.length > 0 && (
+        {!isNew && !balanced && entries.length > 0 && (
           <div className="row" style={{ marginTop: 10, gap: 8 }}>
             <span className="muted" style={{ fontSize: 12.5 }}>איזון מהיר על:</span>
             {entries.map((e) => {
@@ -251,7 +265,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
 
         <div className="row" style={{ marginTop: 16 }}>
           <button className="btn btn-primary btn-block" onClick={() => void save()} disabled={entries.length < 2 || busy}>
-            {busy ? 'שומר...' : game ? 'שמירת שינויים' : 'שמירת הערב וחישוב ההעברות'}
+            {busy ? 'שומר...' : isNew ? '🎲 התחלת הערב' : 'שמירת שינויים'}
           </button>
         </div>
         {entries.length < 2 && <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>צריך לפחות שני שחקנים.</p>}

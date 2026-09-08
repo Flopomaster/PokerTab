@@ -125,7 +125,9 @@ const EMPTY_STATS = (player: Player): PlayerStats => ({
 });
 
 export function computeStats(games: Game[], players: Player[]): StatsBundle {
-  const chronological = sortGames(games);
+  // ערב שעדיין מתנהל אינו נספר: אין בו סכומי יציאה, וכל השחקנים
+  // היו נראים בהפסד של גובה הכניסות עד לסגירתו
+  const chronological = sortGames(games.filter((g) => g.status !== 'live'));
   const summaries = chronological.map(summarizeGame);
   const byPlayer = new Map<ID, PlayerStats>();
   players.forEach((p) => byPlayer.set(p.id, EMPTY_STATS(p)));
