@@ -24,10 +24,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # ההגדרות נטענות מ-.env.production שבריפו
       - run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       # enablement: true מפעיל את Pages אוטומטית אם הוא עוד לא מופעל בריפו
       - uses: actions/configure-pages@v5
         with:
