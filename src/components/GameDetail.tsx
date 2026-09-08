@@ -7,7 +7,9 @@ import { formatDateLong, money, rankBadge, signedMoney } from '../lib/format';
 import { Avatar, Modal } from './ui';
 
 export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBack: () => void; onEdit: () => void; onToast: (m: string) => void }) {
-  const { data, deleteGame, toggleTransferPaid } = useStore();
+  const { players, deleteGame, toggleTransferPaid, canEditGame, members } = useStore();
+  const canEdit = canEditGame(game);
+  const dealer = members.find((m) => m.userId === game.dealerId)?.profile;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const summary = useMemo(() => summarizeGame(game), [game]);
@@ -16,8 +18,8 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
     [summary],
   );
 
-  const nameOf = (id: string) => data.players.find((p) => p.id === id)?.name ?? '—';
-  const playerOf = (id: string) => data.players.find((p) => p.id === id);
+  const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '—';
+  const playerOf = (id: string) => players.find((p) => p.id === id);
 
   const shareText = useMemo(() => {
     const lines: string[] = [];
@@ -36,7 +38,7 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
       transfers.forEach((t) => lines.push(`${nameOf(t.from)} ➡️ ${nameOf(t.to)}: ${money(t.amount)}`));
     }
     return lines.join('\n');
-  }, [game, summary, transfers, data.players]);
+  }, [game, summary, transfers, players]);
 
   const copy = async () => {
     try {
@@ -64,12 +66,15 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
           <p>
             {formatDateLong(game.date)}
             {game.location ? ` · ${game.location}` : ''} · כניסה {money(game.buyInAmount)}
+            {dealer ? ` · 🎩 הדילר: ${dealer.displayName}` : ''}
           </p>
         </div>
-        <div className="row">
-          <button className="btn btn-sm" onClick={onEdit}>✎ עריכה</button>
-          <button className="btn btn-sm btn-danger" onClick={() => setConfirmDelete(true)}>מחיקה</button>
-        </div>
+        {canEdit && (
+          <div className="row">
+            <button className="btn btn-sm" onClick={onEdit}>✎ עריכה</button>
+            <button className="btn btn-sm btn-danger" onClick={() => setConfirmDelete(true)}>מחיקה</button>
+          </div>
+        )}
       </div>
 
       {!summary.balanced && (
@@ -85,6 +90,12 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
           <span className="hint">{transfers.length} העברות · {paidCount} שולמו</span>
         </div>
 
+        {!canEdit && (
+          <p className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
+            צפייה בלבד — רק הדילר של הערב ואדמין הקלאב יכולים לערוך אותו.
+          </p>
+        )}
+
         {transfers.length === 0 ? (
           <p className="muted" style={{ fontSize: 14 }}>אין העברות — כולם יצאו מאוזנים 🤝</p>
         ) : (
@@ -93,7 +104,12 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
             const paid = game.paidTransfers.includes(key);
             return (
               <div className={`transfer${paid ? ' paid' : ''}`} key={key}>
-                <button className={`check${paid ? ' on' : ''}`} onClick={() => toggleTransferPaid(game.id, key)} title="סימון כשולם">
+                <button
+                  className={`check${paid ? ' on' : ''}`}
+                  onClick={() => canEdit && void toggleTransferPaid(game.id, key)}
+                  disabled={!canEdit}
+                  title={canEdit ? 'סימון כשולם' : 'רק הדילר של הערב או אדמין הקלאב יכולים לסמן'}
+                >
                   {paid ? '✓' : ''}
                 </button>
                 <div className="transfer-flow">
@@ -173,8 +189,7 @@ export function GameDetail({ game, onBack, onEdit, onToast }: { game: Game; onBa
             <button
               className="btn btn-danger"
               onClick={() => {
-                deleteGame(game.id);
-                onBack();
+                void deleteGame(game.id).then(onBack);
               }}
             >
               כן, למחוק

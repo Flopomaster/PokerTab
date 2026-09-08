@@ -8,8 +8,8 @@ import { MultiLineChart } from './Charts';
 import type { Series } from './Charts';
 
 export function StatsPage() {
-  const { data } = useStore();
-  const stats = useMemo(() => computeStats(data.games, data.players), [data.games, data.players]);
+  const { players, games } = useStore();
+  const stats = useMemo(() => computeStats(games, players), [games, players]);
   const active = stats.ordered.filter((s) => s.games > 0);
   const titles = useMemo(() => computeTitles(active), [active]);
 
@@ -48,8 +48,8 @@ export function StatsPage() {
     return { bestNight, worstNight, biggestPot, fullestTable };
   }, [stats.summaries]);
 
-  const nameOf = (id: string) => data.players.find((p) => p.id === id)?.name ?? '—';
-  const playerOf = (id: string) => data.players.find((p) => p.id === id);
+  const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '—';
+  const playerOf = (id: string) => players.find((p) => p.id === id);
 
   const h2h = useMemo(() => (h2hA && h2hB && h2hA !== h2hB ? headToHead(stats.summaries, h2hA, h2hB) : null), [stats.summaries, h2hA, h2hB]);
 

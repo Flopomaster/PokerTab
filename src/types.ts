@@ -1,53 +1,86 @@
 export type ID = string;
 
+export type Role = 'admin' | 'member';
+export type MemberStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Profile {
+  id: ID;
+  username: string;
+  displayName: string;
+  emoji: string;
+  color: string;
+}
+
+export interface Club {
+  id: ID;
+  name: string;
+  joinCode: string;
+  defaultBuyIn: number;
+  createdBy: ID | null;
+  createdAt: string;
+}
+
+export interface Membership {
+  clubId: ID;
+  userId: ID;
+  role: Role;
+  status: MemberStatus;
+  requestedAt: string;
+  profile?: Profile;
+}
+
+export interface MyMembership extends Membership {
+  club: Club;
+}
+
+/** שחקן בקלאב. userId ריק = שחקן אורח בלי חשבון. */
 export interface Player {
   id: ID;
+  clubId: ID;
   name: string;
   emoji: string;
   color: string;
+  userId: ID | null;
+  archived: boolean;
   createdAt: string;
-  archived?: boolean;
 }
 
-/** שורת שחקן בערב בודד. כל הסכומים בכסף (₪). */
 export interface GameEntry {
   playerId: ID;
-  /** מספר כניסות (buy-ins) בסכום הסטנדרטי של הערב */
   buyIns: number;
-  /** תוספת חופשית מעבר לכניסות המלאות (ריביי חלקי וכו') */
   extraBuyIn: number;
-  /** כמה יצא איתו בסוף הערב */
   cashOut: number;
 }
 
 export interface Game {
   id: ID;
+  clubId: ID;
   date: string;
   title: string;
   location: string;
   notes: string;
-  /** סכום כניסה סטנדרטי לערב הזה */
   buyInAmount: number;
+  /** "הדילר" — האחראי על הערב, היחיד שיכול לערוך אותו מלבד אדמין הקלאב */
+  dealerId: ID | null;
   entries: GameEntry[];
-  /** מפתחות העברות שסומנו כשולמו: `${fromId}>${toId}` */
   paidTransfers: string[];
   createdAt: string;
 }
 
-export interface Settings {
-  groupName: string;
-  defaultBuyIn: number;
-}
-
-export interface AppData {
-  version: number;
+export interface ClubData {
   players: Player[];
   games: Game[];
-  settings: Settings;
 }
 
 export interface Transfer {
   from: ID;
   to: ID;
   amount: number;
+}
+
+export interface SignUpInput {
+  username: string;
+  password: string;
+  displayName: string;
+  email?: string;
 }

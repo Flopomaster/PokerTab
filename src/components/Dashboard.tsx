@@ -6,8 +6,8 @@ import { formatDate, money, round2, signedMoney } from '../lib/format';
 import { Avatar, Empty, Stat } from './ui';
 
 export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => void; onOpenGame: (id: string) => void; onGoto: (tab: string) => void }) {
-  const { data } = useStore();
-  const stats = useMemo(() => computeStats(data.games, data.players), [data.games, data.players]);
+  const { players, games, club } = useStore();
+  const stats = useMemo(() => computeStats(games, players), [games, players]);
 
   const lastSummary = stats.summaries[stats.summaries.length - 1];
   const lastTransfers = useMemo(
@@ -17,15 +17,15 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
 
   const totalPot = round2(stats.summaries.reduce((s, g) => s + g.totalBuyIn, 0));
   const activeStats = stats.ordered.filter((s) => s.games > 0);
-  const nameOf = (id: string) => data.players.find((p) => p.id === id)?.name ?? '—';
-  const playerOf = (id: string) => data.players.find((p) => p.id === id);
+  const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '—';
+  const playerOf = (id: string) => players.find((p) => p.id === id);
 
-  if (data.games.length === 0) {
+  if (games.length === 0) {
     return (
       <div className="fade-in">
         <div className="section-head">
           <div>
-            <h1>{data.settings.groupName}</h1>
+            <h1>{club?.name ?? 'הקלאב'}</h1>
             <p>הכל מתחיל בערב הראשון.</p>
           </div>
         </div>
@@ -50,21 +50,21 @@ export function Dashboard({ onNewGame, onOpenGame, onGoto }: { onNewGame: () => 
     );
   }
 
-  const recent = sortGames(data.games).slice(-4).reverse();
+  const recent = sortGames(games).slice(-4).reverse();
 
   return (
     <div className="fade-in">
       <div className="section-head">
         <div>
-          <h1>{data.settings.groupName}</h1>
-          <p>{data.games.length} ערבים · {activeStats.length} שחקנים · {money(totalPot)} עברו על השולחן</p>
+          <h1>{club?.name ?? 'הקלאב'}</h1>
+          <p>{games.length} ערבים · {activeStats.length} שחקנים · {money(totalPot)} עברו על השולחן</p>
         </div>
         <button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 14 }}>
-        <Stat label="ערבים שנרשמו" value={data.games.length} sub={`מאז ${formatDate(stats.summaries[0].game.date)}`} />
-        <Stat label="סה״כ קופה" value={money(totalPot)} sub={`ממוצע ${money(round2(totalPot / data.games.length))} לערב`} tone="gold" />
+        <Stat label="ערבים שנרשמו" value={games.length} sub={`מאז ${formatDate(stats.summaries[0].game.date)}`} />
+        <Stat label="סה״כ קופה" value={money(totalPot)} sub={`ממוצע ${money(round2(totalPot / games.length))} לערב`} tone="gold" />
         <Stat
           label="המוביל"
           value={activeStats[0] ? `${activeStats[0].player.emoji} ${activeStats[0].player.name}` : '—'}

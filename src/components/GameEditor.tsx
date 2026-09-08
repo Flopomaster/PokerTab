@@ -5,6 +5,7 @@ import { newId } from '../lib/storage';
 import { entryBuyIn } from '../lib/stats';
 import { money, round2, signedMoney, todayISO } from '../lib/format';
 import { Avatar } from './ui';
+import { errorMessage } from '../lib/api';
 
 function num(v: string): number {
   const n = Number(v.replace(',', '.'));
@@ -12,15 +13,17 @@ function num(v: string): number {
 }
 
 export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDone: (id: string) => void; onCancel: () => void }) {
-  const { data, activePlayers, addPlayer, saveGame } = useStore();
+  const { players, activePlayers, addPlayer, saveGame, club, profile } = useStore();
 
   const [date, setDate] = useState(game?.date ?? todayISO());
   const [title, setTitle] = useState(game?.title ?? '');
   const [location, setLocation] = useState(game?.location ?? '');
   const [notes, setNotes] = useState(game?.notes ?? '');
-  const [buyInAmount, setBuyInAmount] = useState(game?.buyInAmount ?? data.settings.defaultBuyIn);
+  const [buyInAmount, setBuyInAmount] = useState(game?.buyInAmount ?? club?.defaultBuyIn ?? 100);
   const [entries, setEntries] = useState<GameEntry[]>(game?.entries ?? []);
   const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const seated = new Set(entries.map((e) => e.playerId));
   const bench = activePlayers.filter((p) => !seated.has(p.id));
@@ -41,28 +44,46 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
   const patch = (playerId: string, p: Partial<GameEntry>) =>
     setEntries((prev) => prev.map((e) => (e.playerId === playerId ? { ...e, ...p } : e)));
 
-  const addAndSeat = () => {
+  const addAndSeat = async () => {
     const name = newName.trim();
     if (!name) return;
-    const player = addPlayer(name);
-    seat(player.id);
-    setNewName('');
+    setBusy(true);
+    try {
+      const player = await addPlayer(name);
+      seat(player.id);
+      setNewName('');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const save = () => {
+  const save = async () => {
+    if (!club) return;
     const id = game?.id ?? newId();
-    saveGame({
-      id,
-      date,
-      title: title.trim(),
-      location: location.trim(),
-      notes: notes.trim(),
-      buyInAmount,
-      entries,
-      paidTransfers: game?.paidTransfers ?? [],
-      createdAt: game?.createdAt ?? new Date().toISOString(),
-    });
-    onDone(id);
+    setBusy(true);
+    setError(null);
+    try {
+      await saveGame({
+        id,
+        clubId: club.id,
+        date,
+        title: title.trim(),
+        location: location.trim(),
+        notes: notes.trim(),
+        buyInAmount,
+        // הדילר הוא מי שפתח את הערב; בעריכה הוא נשאר מי שהיה
+        dealerId: game?.dealerId ?? profile?.id ?? null,
+        entries,
+        paidTransfers: game?.paidTransfers ?? [],
+        createdAt: game?.createdAt ?? new Date().toISOString(),
+      });
+      onDone(id);
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
   };
 
   /** מאזן את הקופה: מוסיף/מוריד את ההפרש לשחקן שנבחר. */
@@ -119,7 +140,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
               <span style={{ textAlign: 'center' }}>מאזן</span>
             </div>
             {entries.map((e) => {
-              const player = data.players.find((p) => p.id === e.playerId);
+              const player = players.find((p) => p.id === e.playerId);
               const net = round2(e.cashOut - entryBuyIn(e, buyInAmount));
               return (
                 <div className="entry" key={e.playerId}>
@@ -185,9 +206,9 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
             placeholder="שחקן חדש..."
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addAndSeat()}
+            onKeyDown={(e) => e.key === 'Enter' && void addAndSeat()}
           />
-          <button className="btn btn-sm" onClick={addAndSeat} disabled={!newName.trim()}>הוספה לשולחן</button>
+          <button className="btn btn-sm" onClick={() => void addAndSeat()} disabled={!newName.trim() || busy}>הוספה לשולחן</button>
         </div>
       </div>
 
@@ -213,7 +234,7 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
           <div className="row" style={{ marginTop: 10, gap: 8 }}>
             <span className="muted" style={{ fontSize: 12.5 }}>איזון מהיר על:</span>
             {entries.map((e) => {
-              const player = data.players.find((p) => p.id === e.playerId);
+              const player = players.find((p) => p.id === e.playerId);
               return (
                 <button key={e.playerId} className="chip" style={{ cursor: 'pointer' }} onClick={() => balanceOn(e.playerId)}>
                   {player?.emoji} {player?.name}
@@ -229,11 +250,12 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
         </div>
 
         <div className="row" style={{ marginTop: 16 }}>
-          <button className="btn btn-primary btn-block" onClick={save} disabled={entries.length < 2}>
-            {game ? 'שמירת שינויים' : 'שמירת הערב וחישוב ההעברות'}
+          <button className="btn btn-primary btn-block" onClick={() => void save()} disabled={entries.length < 2 || busy}>
+            {busy ? 'שומר...' : game ? 'שמירת שינויים' : 'שמירת הערב וחישוב ההעברות'}
           </button>
         </div>
         {entries.length < 2 && <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>צריך לפחות שני שחקנים.</p>}
+        {error && <div className="balance-banner bad" style={{ marginTop: 12 }}>{error}</div>}
       </div>
     </div>
   );

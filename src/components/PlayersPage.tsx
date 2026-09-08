@@ -7,8 +7,8 @@ import { formatDate, signedMoney } from '../lib/format';
 import { Avatar, Empty, Modal } from './ui';
 
 export function PlayersPage() {
-  const { data, addPlayer, updatePlayer, deletePlayer } = useStore();
-  const stats = useMemo(() => computeStats(data.games, data.players), [data.games, data.players]);
+  const { players, games, addPlayer, updatePlayer, deletePlayer, isAdmin } = useStore();
+  const stats = useMemo(() => computeStats(games, players), [games, players]);
   const [editing, setEditing] = useState<Player | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -26,12 +26,15 @@ export function PlayersPage() {
       <div className="section-head">
         <div>
           <h1>שחקנים</h1>
-          <p>{data.players.length} שחקנים רשומים. אפשר לשנות שם, אימוג׳י וצבע.</p>
+          <p>
+            {players.length} שחקנים בקלאב.{' '}
+            {isAdmin ? 'לחיצה על שחקן פותחת עריכה.' : 'רק אדמין הקלאב יכול לערוך שחקנים.'}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>+ שחקן חדש</button>
       </div>
 
-      {data.players.length === 0 ? (
+      {players.length === 0 ? (
         <Empty
           icon="👥"
           title="אין עדיין שחקנים"
@@ -40,16 +43,17 @@ export function PlayersPage() {
         />
       ) : (
         <div className="card">
-          {data.players.map((p) => {
+          {players.map((p) => {
             const s = stats.byPlayer.get(p.id);
             return (
-              <div className="lb-row" key={p.id} onClick={() => setEditing(p)}>
+              <div className="lb-row" key={p.id} onClick={() => isAdmin && setEditing(p)} style={{ cursor: isAdmin ? 'pointer' : 'default' }}>
                 <Avatar player={p} />
                 <div className="lb-main">
                   <div style={{ minWidth: 0 }}>
                     <div className="lb-name">{p.name}{p.archived ? ' (בארכיון)' : ''}</div>
                     <div className="lb-sub">
                       {s && s.games > 0 ? `${s.games} ערבים · אחרון ${formatDate(s.lastPlayed!)}` : 'עוד לא שיחק'}
+                      {p.userId ? ' · חבר קלאב' : ' · אורח'}
                     </div>
                   </div>
                 </div>
@@ -81,11 +85,11 @@ export function PlayersPage() {
           gamesPlayed={stats.byPlayer.get(editing.id)?.games ?? 0}
           onClose={() => setEditing(null)}
           onSave={(patch) => {
-            updatePlayer(editing.id, patch);
+            void updatePlayer(editing.id, patch);
             setEditing(null);
           }}
           onDelete={() => {
-            deletePlayer(editing.id);
+            void deletePlayer(editing.id);
             setEditing(null);
           }}
         />

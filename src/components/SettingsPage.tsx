@@ -1,28 +1,33 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useStore } from '../state/store';
-import { exportToFile } from '../lib/storage';
-import { buildDemoData } from '../lib/demo';
-import { Modal } from './ui';
+import { exportJson, PLAYER_COLORS, PLAYER_EMOJIS } from '../lib/storage';
+import { errorMessage } from '../lib/api';
+import { isDemoMode } from '../lib/apiClient';
+import { Avatar } from './ui';
 import { InstallCard } from './InstallCard';
+import { MigrateLocalCard } from './clubs/MigrateLocalCard';
 
 export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
-  const { data, updateSettings, replaceAll, resetAll } = useStore();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
-  const [confirmDemo, setConfirmDemo] = useState(false);
+  const { profile, club, players, games, updateProfile, signOut } = useStore();
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
+  const [emoji, setEmoji] = useState(profile?.emoji ?? '🃏');
+  const [color, setColor] = useState(profile?.color ?? PLAYER_COLORS[0]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const importFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result));
-        replaceAll(parsed);
-        onToast('הנתונים יובאו בהצלחה ✓');
-      } catch {
-        onToast('הקובץ לא תקין ✗');
-      }
-    };
-    reader.readAsText(file);
+  const dirty = displayName !== profile?.displayName || emoji !== profile?.emoji || color !== profile?.color;
+
+  const saveProfile = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateProfile({ displayName: displayName.trim() || profile!.displayName, emoji, color });
+      onToast('הפרופיל עודכן ✓');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -30,111 +35,85 @@ export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
       <div className="section-head">
         <div>
           <h1>הגדרות</h1>
-          <p>הנתונים נשמרים בדפדפן הזה בלבד. גיבוי ושיתוף נעשים דרך קובץ JSON.</p>
+          <p>הפרופיל שלך, ההתקנה במכשיר וגיבוי הנתונים.</p>
         </div>
+      </div>
+
+      <MigrateLocalCard onToast={onToast} />
+
+      <div className="card">
+        <div className="card-title">
+          <h2>🙋 הפרופיל שלי</h2>
+          <span className="hint" dir="ltr">@{profile?.username}</span>
+        </div>
+        <div className="row" style={{ gap: 12, marginBottom: 14 }}>
+          <Avatar player={{ emoji, color, name: displayName }} size="lg" />
+          <div className="field" style={{ flex: 1 }}>
+            <label>שם תצוגה</label>
+            <input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>אימוג׳י</label>
+          <div className="emoji-picker">
+            {PLAYER_EMOJIS.map((e) => (
+              <button key={e} className={`emoji-opt${e === emoji ? ' sel' : ''}`} onClick={() => setEmoji(e)}>{e}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>צבע</label>
+          <div className="row" style={{ gap: 8 }}>
+            {PLAYER_COLORS.map((c) => (
+              <button key={c} className={`color-opt${c === color ? ' sel' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={c} />
+            ))}
+          </div>
+        </div>
+
+        {error && <div className="balance-banner bad" style={{ marginBottom: 12 }}>{error}</div>}
+        <button className="btn btn-primary" disabled={!dirty || busy} onClick={() => void saveProfile()}>שמירת הפרופיל</button>
       </div>
 
       <InstallCard />
 
       <div className="card">
-        <div className="card-title"><h2>⚙️ כללי</h2></div>
-        <div className="grid-2">
-          <div className="field">
-            <label>שם הקבוצה</label>
-            <input className="input" value={data.settings.groupName} onChange={(e) => updateSettings({ groupName: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>סכום כניסה ברירת מחדל (₪)</label>
-            <input
-              className="input num"
-              type="number"
-              min={0}
-              step={5}
-              value={data.settings.defaultBuyIn}
-              onChange={(e) => updateSettings({ defaultBuyIn: Number(e.target.value) || 0 })}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
         <div className="card-title">
-          <h2>💾 גיבוי ושיתוף</h2>
-          <span className="hint">{data.games.length} ערבים · {data.players.length} שחקנים</span>
+          <h2>💾 גיבוי</h2>
+          <span className="hint">{games.length} ערבים · {players.length} שחקנים</span>
         </div>
         <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
-          מייצאים קובץ, שולחים לחבר, והוא מייבא אותו אצלו — ככה כולם רואים את אותם נתונים.
+          הורדת עותק של כל נתוני {club?.name ?? 'הקלאב'} כקובץ JSON, לשמירה אצלכם.
         </p>
-        <div className="row">
-          <button className="btn btn-primary" onClick={() => exportToFile(data)}>⬇ ייצוא לקובץ</button>
-          <button className="btn" onClick={() => fileRef.current?.click()}>⬆ ייבוא מקובץ</button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) importFile(f);
-              e.target.value = '';
-            }}
-          />
-        </div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>שימו לב: ייבוא מחליף את כל הנתונים הקיימים בדפדפן הזה.</p>
+        <button
+          className="btn"
+          disabled={!club}
+          onClick={() => {
+            exportJson({ club, players, games }, `pokertab-${club?.name ?? 'club'}-${new Date().toISOString().slice(0, 10)}.json`);
+            onToast('הגיבוי ירד ✓');
+          }}
+        >
+          ⬇ ייצוא לקובץ
+        </button>
       </div>
 
       <div className="card">
-        <div className="card-title"><h2>🧪 נתוני דמו</h2></div>
+        <div className="card-title"><h2>🚪 חשבון</h2></div>
         <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
-          רוצים לראות איך הכל נראה מלא? אפשר לטעון 10 ערבים לדוגמה. זה ידרוס את הנתונים הנוכחיים.
+          מחובר כ-{profile?.displayName} (<span dir="ltr">@{profile?.username}</span>). הנתונים נשמרים בחשבון, אז אפשר להתחבר מכל מכשיר.
         </p>
-        <button className="btn" onClick={() => setConfirmDemo(true)}>טעינת נתוני דמו</button>
+        <button className="btn btn-danger" onClick={() => void signOut()}>התנתקות</button>
       </div>
 
-      <div className="card">
-        <div className="card-title"><h2>🗑️ איפוס</h2></div>
-        <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>מחיקת כל השחקנים והערבים מהדפדפן הזה. אין דרך חזרה — כדאי לייצא קודם.</p>
-        <button className="btn btn-danger" onClick={() => setConfirmReset(true)}>מחיקת כל הנתונים</button>
-      </div>
-
-      {confirmReset && (
-        <Modal title="למחוק הכל?" onClose={() => setConfirmReset(false)}>
-          <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
-            כל {data.games.length} הערבים ו־{data.players.length} השחקנים יימחקו לצמיתות מהדפדפן הזה.
+      {isDemoMode && (
+        <div className="card" style={{ borderColor: 'rgba(255,107,107,0.35)' }}>
+          <div className="card-title"><h2>⚠️ מצב הדגמה</h2></div>
+          <p className="muted" style={{ fontSize: 13.5 }}>
+            לא הוגדר חיבור לשרת, ולכן כל החשבונות והקלאבים חיים בדפדפן הזה בלבד — אף אחד אחר לא רואה אותם.
+            אחרי חיבור Supabase (ראו README) הכל יעבוד בין מכשירים.
           </p>
-          <div className="row">
-            <button
-              className="btn btn-danger"
-              onClick={() => {
-                resetAll();
-                setConfirmReset(false);
-                onToast('הכל נמחק');
-              }}
-            >
-              כן, למחוק הכל
-            </button>
-            <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>ביטול</button>
-          </div>
-        </Modal>
-      )}
-
-      {confirmDemo && (
-        <Modal title="לטעון נתוני דמו?" onClose={() => setConfirmDemo(false)}>
-          <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>הנתונים הקיימים יוחלפו ב־10 ערבים לדוגמה עם 6 שחקנים.</p>
-          <div className="row">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                replaceAll(buildDemoData());
-                setConfirmDemo(false);
-                onToast('נתוני דמו נטענו ✓');
-              }}
-            >
-              כן, לטעון
-            </button>
-            <button className="btn btn-ghost" onClick={() => setConfirmDemo(false)}>ביטול</button>
-          </div>
-        </Modal>
+        </div>
       )}
     </div>
   );

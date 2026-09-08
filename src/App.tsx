@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './state/store';
+import { isDemoMode } from './lib/apiClient';
 import { Dashboard } from './components/Dashboard';
 import { GamesPage } from './components/GamesPage';
 import { GameEditor } from './components/GameEditor';
@@ -8,9 +9,13 @@ import { Leaderboard } from './components/Leaderboard';
 import { StatsPage } from './components/StatsPage';
 import { PlayersPage } from './components/PlayersPage';
 import { SettingsPage } from './components/SettingsPage';
+import { AuthScreen } from './components/auth/AuthScreen';
+import { ClubGate } from './components/clubs/ClubGate';
+import { ClubSwitcher } from './components/clubs/ClubSwitcher';
+import { AdminPanel } from './components/clubs/AdminPanel';
 import { AppIcon } from './icons/AppIcon';
 
-type Tab = 'home' | 'games' | 'leaderboard' | 'stats' | 'players' | 'settings';
+type Tab = 'home' | 'games' | 'leaderboard' | 'stats' | 'players' | 'club' | 'settings';
 
 type View =
   | { kind: 'tab'; tab: Tab }
@@ -23,17 +28,18 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'leaderboard', label: 'לוח מובילים', icon: '🏆' },
   { id: 'stats', label: 'סטטיסטיקות', icon: '📈' },
   { id: 'players', label: 'שחקנים', icon: '👥' },
+  { id: 'club', label: 'הקלאב', icon: '🏛️' },
   { id: 'settings', label: 'הגדרות', icon: '⚙️' },
 ];
 
 export default function App() {
-  const { data } = useStore();
+  const { ready, profile, club, membership, games, members, isAdmin, loadingClub } = useStore();
   const [view, setView] = useState<View>({ kind: 'tab', tab: 'home' });
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
+    const t = setTimeout(() => setToast(null), 2400);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -41,17 +47,33 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [view]);
 
+  // החלפת קלאב מחזירה למסך הראשי
+  useEffect(() => {
+    setView({ kind: 'tab', tab: 'home' });
+  }, [club?.id]);
+
+  if (!ready) {
+    return (
+      <div className="boot">
+        <AppIcon size={72} />
+        <p className="muted" style={{ marginTop: 14, fontSize: 14 }}>טוען...</p>
+      </div>
+    );
+  }
+
+  if (!profile) return <AuthScreen />;
+
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
   const openGame = (id: string) => setView({ kind: 'game', id });
   const newGame = () => setView({ kind: 'editor', gameId: null });
 
-  const activeTab = view.kind === 'tab' ? view.tab : view.kind === 'editor' ? 'games' : 'games';
-  const currentGame = view.kind === 'game' ? data.games.find((g) => g.id === view.id) : undefined;
-  const editingGame = view.kind === 'editor' && view.gameId ? data.games.find((g) => g.id === view.gameId) ?? null : null;
+  const pendingCount = members.filter((m) => m.status === 'pending').length;
+  const currentGame = view.kind === 'game' ? games.find((g) => g.id === view.id) : undefined;
+  const editingGame = view.kind === 'editor' && view.gameId ? games.find((g) => g.id === view.gameId) ?? null : null;
 
-  return (
-    <div className="app">
-      <header className="topbar">
+  const header = (
+    <header className="topbar">
+      <div className="row between" style={{ gap: 10 }}>
         <div className="brand">
           <div className="brand-mark"><AppIcon size={44} /></div>
           <div>
@@ -59,45 +81,71 @@ export default function App() {
             <div className="brand-sub">מי חייב למי, וכמה — בלי ויכוחים</div>
           </div>
         </div>
+        <ClubSwitcher />
+      </div>
+      {club && membership?.status === 'approved' && (
         <nav className="tabs">
           {TABS.map((t) => (
-            <button key={t.id} className={`tab${activeTab === t.id && view.kind === 'tab' ? ' active' : ''}`} onClick={() => goTab(t.id)}>
+            <button key={t.id} className={`tab${view.kind === 'tab' && view.tab === t.id ? ' active' : ''}`} onClick={() => goTab(t.id)}>
               <span>{t.icon}</span> {t.label}
+              {t.id === 'club' && isAdmin && pendingCount > 0 && <span className="tab-badge">{pendingCount}</span>}
             </button>
           ))}
         </nav>
-      </header>
+      )}
+    </header>
+  );
+
+  const noClub = !club || membership?.status !== 'approved';
+
+  return (
+    <div className="app">
+      {isDemoMode && (
+        <div className="demo-bar">
+          מצב הדגמה — אין חיבור לשרת, והנתונים נשמרים בדפדפן הזה בלבד
+        </div>
+      )}
+      {header}
 
       <main>
-        {view.kind === 'editor' && (
-          <GameEditor
-            game={editingGame}
-            onDone={(id) => {
-              openGame(id);
-              setToast(editingGame ? 'הערב עודכן ✓' : 'הערב נשמר ✓');
-            }}
-            onCancel={() => (editingGame ? openGame(editingGame.id) : goTab('games'))}
-          />
+        {noClub ? (
+          <ClubGate />
+        ) : (
+          <>
+            {loadingClub && games.length === 0 && <div className="empty">טוען את נתוני הקלאב...</div>}
+
+            {view.kind === 'editor' && (
+              <GameEditor
+                game={editingGame}
+                onDone={(id) => {
+                  openGame(id);
+                  setToast(editingGame ? 'הערב עודכן ✓' : 'הערב נשמר ✓');
+                }}
+                onCancel={() => (editingGame ? openGame(editingGame.id) : goTab('games'))}
+              />
+            )}
+
+            {view.kind === 'game' &&
+              (currentGame ? (
+                <GameDetail
+                  game={currentGame}
+                  onBack={() => goTab('games')}
+                  onEdit={() => setView({ kind: 'editor', gameId: currentGame.id })}
+                  onToast={setToast}
+                />
+              ) : (
+                <div className="empty">הערב לא נמצא.</div>
+              ))}
+
+            {view.kind === 'tab' && view.tab === 'home' && <Dashboard onNewGame={newGame} onOpenGame={openGame} onGoto={(t) => goTab(t as Tab)} />}
+            {view.kind === 'tab' && view.tab === 'games' && <GamesPage onNewGame={newGame} onOpenGame={openGame} />}
+            {view.kind === 'tab' && view.tab === 'leaderboard' && <Leaderboard />}
+            {view.kind === 'tab' && view.tab === 'stats' && <StatsPage />}
+            {view.kind === 'tab' && view.tab === 'players' && <PlayersPage />}
+            {view.kind === 'tab' && view.tab === 'club' && <AdminPanel onToast={setToast} />}
+            {view.kind === 'tab' && view.tab === 'settings' && <SettingsPage onToast={setToast} />}
+          </>
         )}
-
-        {view.kind === 'game' &&
-          (currentGame ? (
-            <GameDetail
-              game={currentGame}
-              onBack={() => goTab('games')}
-              onEdit={() => setView({ kind: 'editor', gameId: currentGame.id })}
-              onToast={setToast}
-            />
-          ) : (
-            <div className="empty">הערב לא נמצא.</div>
-          ))}
-
-        {view.kind === 'tab' && view.tab === 'home' && <Dashboard onNewGame={newGame} onOpenGame={openGame} onGoto={(t) => goTab(t as Tab)} />}
-        {view.kind === 'tab' && view.tab === 'games' && <GamesPage onNewGame={newGame} onOpenGame={openGame} />}
-        {view.kind === 'tab' && view.tab === 'leaderboard' && <Leaderboard />}
-        {view.kind === 'tab' && view.tab === 'stats' && <StatsPage />}
-        {view.kind === 'tab' && view.tab === 'players' && <PlayersPage />}
-        {view.kind === 'tab' && view.tab === 'settings' && <SettingsPage onToast={setToast} />}
       </main>
 
       {toast && <div className="toast">{toast}</div>}

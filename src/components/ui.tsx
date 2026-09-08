@@ -1,15 +1,21 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { Player } from '../types';
+/** כל ישות עם אימוג׳י וצבע — שחקן או פרופיל משתמש */
+export interface AvatarLike {
+  name?: string;
+  displayName?: string;
+  emoji: string;
+  color: string;
+}
 
-export function Avatar({ player, size = 'md' }: { player?: Player; size?: 'sm' | 'md' | 'lg' }) {
+export function Avatar({ player, size = 'md' }: { player?: AvatarLike | null; size?: 'sm' | 'md' | 'lg' }) {
   const cls = size === 'lg' ? 'avatar lg' : size === 'sm' ? 'avatar sm' : 'avatar';
   if (!player) return <div className={cls}>❔</div>;
   return (
     <div
       className={cls}
       style={{ background: `${player.color}22`, borderColor: `${player.color}55`, boxShadow: `inset 0 0 18px ${player.color}18` }}
-      title={player.name}
+      title={player.name ?? player.displayName}
     >
       {player.emoji}
     </div>

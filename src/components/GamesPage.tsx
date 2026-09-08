@@ -5,18 +5,18 @@ import { formatDate, money, signedMoney } from '../lib/format';
 import { Avatar, Empty } from './ui';
 
 export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; onOpenGame: (id: string) => void }) {
-  const { data } = useStore();
-  const stats = useMemo(() => computeStats(data.games, data.players), [data.games, data.players]);
+  const { players, games } = useStore();
+  const stats = useMemo(() => computeStats(games, players), [games, players]);
   const [filter, setFilter] = useState<string>('all');
 
-  const playerOf = (id: string) => data.players.find((p) => p.id === id);
-  const games = useMemo(() => {
-    const all = sortGames(data.games).reverse();
+  const playerOf = (id: string) => players.find((p) => p.id === id);
+  const visibleGames = useMemo(() => {
+    const all = sortGames(games).reverse();
     if (filter === 'all') return all;
     return all.filter((g) => g.entries.some((e) => e.playerId === filter));
-  }, [data.games, filter]);
+  }, [games, filter]);
 
-  if (data.games.length === 0) {
+  if (games.length === 0) {
     return (
       <Empty
         icon="📅"
@@ -32,7 +32,7 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
       <div className="section-head">
         <div>
           <h1>היסטוריית ערבים</h1>
-          <p>{games.length} ערבים · לחיצה פותחת את הסיכום וההעברות.</p>
+          <p>{visibleGames.length} ערבים · לחיצה פותחת את הסיכום וההעברות.</p>
         </div>
         <button className="btn btn-primary" onClick={onNewGame}>+ ערב חדש</button>
       </div>
@@ -41,7 +41,7 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
         <button className={`chip${filter === 'all' ? ' gold' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')}>
           הכל
         </button>
-        {data.players.map((p) => (
+        {players.map((p) => (
           <button key={p.id} className={`chip${filter === p.id ? ' gold' : ''}`} style={{ cursor: 'pointer' }} onClick={() => setFilter(p.id)}>
             {p.emoji} {p.name}
           </button>
@@ -49,7 +49,7 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
       </div>
 
       <div className="card">
-        {games.map((g) => {
+        {visibleGames.map((g) => {
           const s = stats.summaries.find((x) => x.game.id === g.id);
           const winner = s?.results[0];
           return (
@@ -82,7 +82,7 @@ export function GamesPage({ onNewGame, onOpenGame }: { onNewGame: () => void; on
             </div>
           );
         })}
-        {games.length === 0 && <p className="muted" style={{ fontSize: 14 }}>אין ערבים שתואמים לסינון.</p>}
+        {visibleGames.length === 0 && <p className="muted" style={{ fontSize: 14 }}>אין ערבים שתואמים לסינון.</p>}
       </div>
     </div>
   );

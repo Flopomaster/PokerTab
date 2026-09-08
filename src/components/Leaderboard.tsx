@@ -21,8 +21,8 @@ const COLUMNS: { key: SortKey; label: string; hint?: string }[] = [
 ];
 
 export function Leaderboard() {
-  const { data } = useStore();
-  const stats = useMemo(() => computeStats(data.games, data.players), [data.games, data.players]);
+  const { players, games } = useStore();
+  const stats = useMemo(() => computeStats(games, players), [games, players]);
   const [sortKey, setSortKey] = useState<SortKey>('net');
   const [asc, setAsc] = useState(false);
   const [selected, setSelected] = useState<PlayerStats | null>(null);
