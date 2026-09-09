@@ -121,8 +121,15 @@ async function sendPush(sub: PushSubscriptionRow, message: { title: string; body
   return res.status;
 }
 
+/* הדפדפן שולח preflight לפני הקריאה האמיתית — בלי הכותרות האלה הוא לא ישלח אותה כלל */
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...cors } });
 
 /** מזהה המשתמש מתוך ה-JWT. הפלטפורמה כבר אימתה את החתימה (verify_jwt). */
 function callerId(req: Request): string | null {
@@ -202,6 +209,7 @@ async function buildMessages(db: SupabaseClient, type: string, clubId: string, g
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
   const caller = callerId(req);
