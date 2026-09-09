@@ -11,7 +11,7 @@ type Phase = 'playing' | 'closing';
 
 /** ניהול שולחן תוך כדי שהוא מתנהל: כניסות, שחקנים שמצטרפים, וסגירה בסוף. */
 export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gameId: string) => void; onToast: (m: string) => void }) {
-  const { players, activePlayers, addPlayer, saveGame, deleteGame, canEditGame, members, openDebts } = useStore();
+  const { players, activePlayers, addPlayer, saveGame, deleteGame, canEditGame, members, openDebts, notify } = useStore();
   const canEdit = canEditGame(game);
 
   const [entries, setEntries] = useState<GameEntry[]>(game.entries);
@@ -116,6 +116,7 @@ export function LiveGame({ game, onClose, onToast }: { game: Game; onClose: (gam
   const closeNight = async () => {
     if (timer.current) clearTimeout(timer.current);
     await persist(entries, 'closed');
+    void notify('table_closed', game.clubId, game.id);
     onToast('השולחן נסגר — הנה ההעברות ✓');
     onClose(game.id);
   };

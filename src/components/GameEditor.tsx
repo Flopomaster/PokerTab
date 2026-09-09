@@ -16,7 +16,7 @@ function num(v: string): number {
 export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDone: (id: string) => void; onCancel: () => void }) {
   // שולחן חדש נפתח כ"חי" ומנוהל תוך כדי; עריכה נוגעת רק לשולחן שכבר נסגר
   const isNew = !game;
-  const { players, activePlayers, addPlayer, saveGame, club, profile, openDebts } = useStore();
+  const { players, activePlayers, addPlayer, saveGame, club, profile, openDebts, notify } = useStore();
 
   const [date, setDate] = useState(game?.date ?? todayISO());
   const [title, setTitle] = useState(game?.title ?? '');
@@ -91,6 +91,8 @@ export function GameEditor({ game, onDone, onCancel }: { game: Game | null; onDo
         paidTransfers: game?.paidTransfers ?? [],
         createdAt: game?.createdAt ?? new Date().toISOString(),
       });
+      // התראה על פתיחת שולחן נשלחת רק כשנפתח שולחן חדש
+      if (isNew) void notify('table_opened', club.id, id);
       onDone(id);
     } catch (e) {
       setError(errorMessage(e));

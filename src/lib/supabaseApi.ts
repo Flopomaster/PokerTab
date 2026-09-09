@@ -495,6 +495,25 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       fail(error);
     },
 
+    async savePushSubscription({ endpoint, p256dh, auth, userAgent }) {
+      const id = await myId();
+      const { error } = await sb
+        .from('push_subscriptions')
+        .upsert({ endpoint, user_id: id, p256dh, auth, user_agent: userAgent ?? null });
+      fail(error);
+    },
+
+    async removePushSubscription(endpoint) {
+      const { error } = await sb.from('push_subscriptions').delete().eq('endpoint', endpoint);
+      fail(error);
+    },
+
+    async notify(type, clubId, gameId = null) {
+      // התראה שנכשלת לא אמורה להפיל את הפעולה עצמה
+      const { error } = await sb.functions.invoke('notify', { body: { type, clubId, gameId } });
+      if (error) console.warn('notify failed', error.message);
+    },
+
     subscribe(clubId, onChange) {
       const channel = sb
         .channel(`club-${clubId}`)

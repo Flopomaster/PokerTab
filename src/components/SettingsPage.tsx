@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/api';
 import { isDemoMode } from '../lib/apiClient';
 import { Avatar } from './ui';
 import { InstallCard } from './InstallCard';
+import { NotificationsCard } from './NotificationsCard';
 import { MigrateLocalCard } from './clubs/MigrateLocalCard';
 
 export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
@@ -77,6 +78,8 @@ export function SettingsPage({ onToast }: { onToast: (m: string) => void }) {
       </div>
 
       <InstallCard />
+
+      <NotificationsCard onToast={onToast} />
 
       <div className="card">
         <div className="card-title">

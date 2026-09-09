@@ -47,6 +47,12 @@ export interface Api {
   /** אישור של המקבל שהכסף הגיע */
   confirmTransferReceived(gameId: ID, fromPlayer: ID, toPlayer: ID, value: boolean): Promise<void>;
 
+  /* ---- התראות ---- */
+  savePushSubscription(input: { endpoint: string; p256dh: string; auth: string; userAgent?: string }): Promise<void>;
+  removePushSubscription(endpoint: string): Promise<void>;
+  /** מבקש מהשרת לשלוח התראה על אירוע בקלאב */
+  notify(type: 'table_opened' | 'table_closed' | 'join_request', clubId: ID, gameId?: ID | null): Promise<void>;
+
   /** מנוי לשינויים בקלאב; מחזיר פונקציית ביטול */
   subscribe(clubId: ID, onChange: () => void): () => void;
 }

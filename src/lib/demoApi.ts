@@ -382,6 +382,18 @@ export function createDemoApi(): Api {
       persist();
     },
 
+    async savePushSubscription() {
+      // אין שרת במצב הדגמה
+    },
+
+    async removePushSubscription() {
+      // אין שרת במצב הדגמה
+    },
+
+    async notify() {
+      // אין שרת במצב הדגמה
+    },
+
     subscribe(_clubId, onChange) {
       dataListeners.add(onChange);
       const onStorage = (e: StorageEvent) => {

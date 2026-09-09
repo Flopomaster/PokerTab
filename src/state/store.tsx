@@ -65,6 +65,7 @@ interface StoreValue {
   markTransferSent: (gameId: ID, from: ID, to: ID, value: boolean) => Promise<void>;
   confirmTransferReceived: (gameId: ID, from: ID, to: ID, value: boolean) => Promise<void>;
   reloadClubData: () => Promise<void>;
+  notify: (type: 'table_opened' | 'table_closed' | 'join_request', clubId: ID, gameId?: ID | null) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -292,6 +293,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const result = await api.joinClub(code);
         await refreshMemberships();
         if (result.status === 'approved') setActiveClubId(result.club.id);
+        else if (result.status === 'pending') await api.notify('join_request', result.club.id);
         return result;
       },
       selectClub(clubId) {
@@ -397,6 +399,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       },
       reloadClubData,
+      notify: (type, clubId, gameId = null) => api.notify(type, clubId, gameId),
     };
   }, [
     ready, profile, memberships, club, membership, isAdmin, players, games, members, settlements, openDebts,
